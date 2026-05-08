@@ -1,0 +1,20 @@
+{% extends "two_factor/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Two-Factor Authentication Enabled" %}{% endblock %}
+
+{% block two_factor_content %}
+  <div style="text-align: center;">
+    <div style="margin-bottom: 2rem; color: #10b981;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+    </div>
+    <h1>{% trans "Congratulations!" %}</h1>
+    <p>{% trans "Two-factor authentication is now enabled for your account. This adds a strong layer of security to your data." %}</p>
+    
+    <p style="margin-top: 2rem;">
+        <a href="/" class="auth-button" style="display: inline-block; padding: 0.75rem 2rem;">
+            {% trans "Go to Dashboard" %}
+        </a>
+    </p>
+  </div>
+{% endblock %}

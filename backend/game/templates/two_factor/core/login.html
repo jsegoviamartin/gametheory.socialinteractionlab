@@ -1,0 +1,56 @@
+{% extends "two_factor/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Login" %}{% endblock %}
+
+{% block two_factor_content %}
+  <h1>{% trans "Login" %}</h1>
+
+  {% if wizard.steps.current == 'auth' %}
+    <p>{% trans "Please enter your username and password." %}</p>
+  {% elif wizard.steps.current == 'token' %}
+    <p>{% trans "Please enter the 6-digit code from your authenticator app." %}</p>
+  {% elif wizard.steps.current == 'backup' %}
+    <p>{% trans "Please enter one of your backup codes." %}</p>
+  {% endif %}
+
+  <form action="" method="post">{% csrf_token %}
+    {{ wizard.management_form }}
+
+    {% if wizard.form.errors %}
+      <div class="errorlist">
+        {% for field in wizard.form %}
+          {% for error in field.errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+        {% for error in wizard.form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="form-group">
+      {% for field in wizard.form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}
+          <div class="helptext">{{ field.help_text }}</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if wizard.steps.prev %}
+      <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border); margin-bottom: 0.5rem;">
+        {% trans "Back" %}
+      </button>
+    {% endif %}
+    <button type="submit">{% trans "Login" %}</button>
+  </form>
+
+  {% if wizard.steps.current == 'auth' %}
+    <p style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem; color: var(--text-muted);">
+      <a href="{% url 'two_factor:setup' %}">{% trans "Enable Two-Factor Authentication" %}</a>
+    </p>
+  {% endif %}
+{% endblock %}

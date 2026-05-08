@@ -1,0 +1,77 @@
+{% extends "two_factor/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Enable Two-Factor Authentication" %}{% endblock %}
+
+{% block two_factor_content %}
+  <h1>{% trans "Enable Two-Factor Authentication" %}</h1>
+  
+  <p>
+    {% if wizard.steps.current == 'welcome' %}
+      {% trans "To start using a token generator, please use your smartphone to scan the QR code below." %}
+    {% elif wizard.steps.current == 'method' %}
+      {% trans "Please select which authentication method you would like to use." %}
+    {% elif wizard.steps.current == 'generator' %}
+      {% trans "Scan the QR code and enter the 6-digit code from your app." %}
+    {% elif wizard.steps.current == 'validation' %}
+      {% trans "Enter the 6-digit code from your app." %}
+    {% endif %}
+  </p>
+
+  <form action="" method="post">{% csrf_token %}
+    {{ wizard.management_form }}
+
+    {% if wizard.form.errors %}
+      <div class="errorlist" style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 0.5rem; border: 1px solid #ef4444; margin-bottom: 1.5rem; color: #ef4444;">
+        <ul style="margin: 0; padding-left: 1.2rem;">
+        {% for field in wizard.form %}
+          {% for error in field.errors %}
+            <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+        {% for error in wizard.form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <div class="form-group">
+      {% if wizard.steps.current == 'generator' %}
+        <div class="qr-code" style="background: white; padding: 1rem; border-radius: 0.5rem; display: flex; justify-content: center; margin-bottom: 1.5rem;">
+          <img src="{{ QR_URL }}" alt="QR Code" />
+        </div>
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <p><strong>{% trans "Secret Key:" %}</strong> <code>{{ secret_key }}</code></p>
+        </div>
+      {% endif %}
+      
+      <div class="form-fields">
+        {% for field in wizard.form %}
+          <div class="field-wrapper" style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+              <p style="font-size: 0.75rem; color: var(--text-muted);">{{ field.help_text }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+      {% if wizard.steps.prev %}
+        <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border); width: auto; padding: 0.75rem 1.5rem;">
+          {% trans "Back" %}
+        </button>
+      {% endif %}
+      <button type="submit" style="flex: 1;">
+        {% if wizard.steps.current == 'validation' or wizard.steps.current == 'generator' %}
+          {% trans "Verify and Finish" %}
+        {% else %}
+          {% trans "Next Step" %}
+        {% endif %}
+      </button>
+    </div>
+  </form>
+{% endblock %}
