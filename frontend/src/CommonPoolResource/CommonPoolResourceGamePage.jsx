@@ -1,20 +1,275 @@
-import { useState, useEffect, useRef } from "react"
+import { memo, useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Clock, Loader2, MessageSquare, X } from "lucide-react"
 import "./GamePage.css"
 
-import fishingPoolImg from "../assets/fishing-pool.png"
 import fishingRodImg from "../assets/fishing-rod.png"
 import playerImg from "../assets/blue.png"
 import redPlayerImg from "../assets/red.png"
-import { getPlayerFingerprint, gameApi } from "../services/gameApi"
+import { getPlayerFingerprint } from "../services/gameApi"
 import PayoffsTable from "./PayoffsTable"
-import { useWebSocketPGG } from "../hooks/useWebSocketPGG"
+import { useWebSocketCPR } from "../hooks/useWebSocketCPR"
 import SurveyForm from "../components/SurveyForm"
 
 
+const MAX_FISH_STOCK = 100
+const FISH_COUNT = 100
+const FISH_LAYOUT_COUNT = Math.max(100, FISH_COUNT, MAX_FISH_STOCK)
 
-// Constants moved to component scope or replaced by dynamic params
+
+const seededRandom = (seed) => {
+  const value = Math.sin(seed * 127.1) * 43758.5453123
+  return value - Math.floor(value)
+}
+
+
+
+const LivingFishPool = memo(({ targetStock, pendingExtraction, phase, maxExtraction, fishCount, maxFishStock, layoutCount }) => {
+  const [displayedFishStock, setDisplayedFishStock] = useState(targetStock)
+
+  useEffect(() => {
+    const target = Math.max(0, Math.min(maxFishStock, Math.round(targetStock)))
+
+    const timer = setInterval(() => {
+      setDisplayedFishStock((current) => {
+        if (current === target) {
+          clearInterval(timer)
+          return current
+        }
+
+        const direction = target > current ? 1 : -1
+        const distance = Math.abs(target - current)
+        const step = Math.max(1, Math.ceil(distance / 18))
+        const next = current + direction * step
+
+        if ((direction > 0 && next >= target) || (direction < 0 && next <= target)) {
+          clearInterval(timer)
+          return target
+        }
+
+        return next
+      })
+    }, 70)
+
+    return () => clearInterval(timer)
+  }, [targetStock, maxFishStock])
+
+  const fish = useMemo(
+    () => {
+      const gridColumns = Math.max(1, Math.ceil(Math.sqrt(layoutCount)))
+      const gridRows = Math.max(1, Math.ceil(layoutCount / gridColumns))
+
+      const fishItems = Array.from({ length: layoutCount }, (_, index) => {
+        const depth = seededRandom(index + 11)
+        const row = Math.floor(index / gridColumns)
+        const column = index % gridColumns
+        const yJitter = (seededRandom(index + 37) - 0.5) * 4
+        const xJitter = (seededRandom(index + 43) - 0.5) * 0.32
+        const yBase = gridRows === 1 ? 50 : 11 + row * (64 / (gridRows - 1))
+        const y = Math.max(11, Math.min(75, yBase + yJitter))
+        const verticalRatio = Math.abs(y - 50) / 48
+        const laneHalfWidth = Math.sqrt(Math.max(0.1, 1 - verticalRatio * verticalRatio)) * 47
+        const leftInset = 3.4 + depth * 1.5
+        const rightInset = 7.2 + depth * 2.2
+        const laneStart = 50 - laneHalfWidth + leftInset
+        const laneEnd = 50 + laneHalfWidth - rightInset
+        const laneWidth = Math.max(10, laneEnd - laneStart)
+        const rowSpread = ((row % 5) - 2) * 0.014
+        const xProgress = Math.max(0.04, Math.min(0.935, (column + 0.48 + xJitter) / gridColumns + rowSpread - 0.012))
+        const x = laneStart + laneWidth * xProgress
+        const edgeDistance = Math.max(0, Math.min(x - laneStart, laneEnd - x))
+        const targetSwimRange = Math.min(edgeDistance * 0.58, laneWidth * (0.06 + seededRandom(index + 41) * 0.065))
+        const swimRange = Math.max(Math.min(1.8, edgeDistance * 0.5), targetSwimRange)
+        const expandedSwimRange = Math.max(swimRange, Math.min(edgeDistance * 0.82, laneWidth * (0.11 + seededRandom(index + 79) * 0.08)))
+        const verticalClearance = Math.max(1, Math.min((y - 11) * 1.45, (77 - y) * 1.45))
+        const driftLimit = Math.min(8, Math.max(2, (1 - verticalRatio) * 12), verticalClearance)
+
+        return {
+          id: index,
+          x,
+          y,
+          swimRange,
+          expandedSwimRange,
+          drift: (seededRandom(index + 59) - 0.5) * driftLimit,
+          duration: 8 + seededRandom(index + 61) * 13,
+          delay: -seededRandom(index + 67) * 18,
+          scale: 0.52 + depth * 0.5,
+          opacity: 0.76 + depth * 0.22,
+          blur: depth < 0.12 ? 0.25 : 0,
+          hueStart: 178 + seededRandom(index + 71) * 42,
+          hueEnd: 198 + seededRandom(index + 73) * 42,
+        }
+      })
+
+      fishItems
+        .slice()
+        .sort((firstFish, secondFish) => seededRandom(firstFish.id + 211) - seededRandom(secondFish.id + 211))
+        .forEach((item, visibilityRank) => {
+          item.visibilityRank = visibilityRank
+        })
+
+      return fishItems
+    },
+    [layoutCount]
+  )
+
+  const bubbles = useMemo(
+    () =>
+      Array.from({ length: 18 }, (_, index) => ({
+        id: index,
+        left: 8 + seededRandom(index + 101) * 84,
+        size: 3 + seededRandom(index + 103) * 8,
+        duration: 5 + seededRandom(index + 107) * 6,
+        delay: -seededRandom(index + 109) * 8,
+      })),
+    []
+  )
+
+  const visibleStock = Math.max(0, Math.min(fishCount, maxFishStock, Math.round(displayedFishStock)))
+  const visibleCapacity = Math.max(1, maxFishStock)
+  const freedom = 1 - visibleStock / visibleCapacity
+  const swimActivity = 1 + freedom * 0.9
+  const driftActivity = 1 + freedom * 0.65
+  const speedActivity = 1 - freedom * 0.22
+  const pressure = phase === "contribution" ? Math.min(1, Math.max(0, pendingExtraction) / Math.max(1, maxExtraction)) : 0
+  const stockRatio = visibleStock / Math.max(1, maxFishStock)
+  const healthClass =
+    stockRatio > 0.7 ? "cpr-fish-pool-healthy" : stockRatio > 0.35 ? "cpr-fish-pool-stressed" : "cpr-fish-pool-low"
+  const visibleFish = useMemo(() => {
+    const activityBlend = (swimActivity - 1) / 0.9
+
+    return fish
+      .filter((item) => item.visibilityRank < visibleStock)
+      .map((item) => {
+        const activeSwimRange = item.swimRange + (item.expandedSwimRange - item.swimRange) * activityBlend
+
+        return {
+          ...item,
+          activeSwimPixels: Math.round(activeSwimRange * 3),
+          activeDrift: item.drift * driftActivity,
+          activeDuration: item.duration * speedActivity,
+        }
+      })
+  }, [fish, visibleStock, swimActivity, driftActivity, speedActivity])
+
+  return (
+    <div className="cpr-living-fish-pool-shell">
+      <div
+        className={`cpr-living-fish-pool ${healthClass} ${pressure > 0 ? "cpr-pool-harvesting" : ""}`}
+        role="img"
+        aria-label={`Common pool fish stock: ${visibleStock} of ${maxFishStock}`}
+        style={{ "--harvest-pressure": pressure }}
+      >
+      <div className="cpr-water-bed" />
+      <div className="cpr-water-surface" />
+      <div className="cpr-water-shimmer" />
+      <div className="cpr-bubble-field" aria-hidden="true">
+        {bubbles.map((bubble) => (
+          <span
+            key={bubble.id}
+            className="cpr-bubble"
+            style={{
+              left: `${bubble.left}%`,
+              width: `${bubble.size}px`,
+              height: `${bubble.size}px`,
+              animationDuration: `${bubble.duration}s`,
+              animationDelay: `${bubble.delay}s`,
+            }}
+          />
+        ))}
+      </div>
+      <div className="cpr-fish-field" aria-hidden="true">
+        {visibleFish.map((item) => (
+          <span
+            key={item.id}
+            className="cpr-fish cpr-fish-visible"
+            style={{
+              "--fish-x": `${item.x}%`,
+              "--fish-y": `${item.y}%`,
+              "--fish-swim-start": `-${item.activeSwimPixels}px`,
+              "--fish-swim-end": `${item.activeSwimPixels}px`,
+              "--fish-drift": `${item.activeDrift}px`,
+              "--fish-duration": `${item.activeDuration}s`,
+              "--fish-delay": `${item.delay}s`,
+              "--fish-scale": item.scale,
+              "--fish-opacity": item.opacity,
+              "--fish-blur": `${item.blur}px`,
+              "--fish-hue-start": item.hueStart,
+              "--fish-hue-end": item.hueEnd,
+              zIndex: Math.round(item.scale * 10),
+            }}
+          >
+            <span className="cpr-fish-body" />
+          </span>
+        ))}
+      </div>
+      </div>
+      <div className="cpr-fish-stock-meter">
+        <span>{visibleStock}</span>
+        <small className="cpr-fish-stock-meter-label">/{maxFishStock} fish</small>
+      </div>
+    </div>
+  )
+})
+
+const ResultsPopup = ({ roundResults, onClose, roomType, playerIndex, roundNumber, TOTAL_ROUNDS }) => {
+  const isBasic = roomType === "basic" || !roomType;
+  const isFinalized = isBasic || (roundResults && roundResults.stage2Actions);
+
+  return (
+    <>
+      <div className="cpr-results-overlay" onClick={onClose}></div>
+      <div className="cpr-results-popup-card">
+        <h2>Round {roundResults.round} Results</h2>
+        {roundResults.players.map((p, i) => {
+          const pIdx = i + 1;
+          const isMe = pIdx === playerIndex;
+
+          return (
+            <div key={i} className="cpr-result-row-container">
+              <div className="cpr-result-row">
+                <span style={{ fontWeight: isMe ? "bold" : "normal", color: isMe ? "#818CF8" : "inherit" }}>
+                  {isMe ? "You" : `Player ${pIdx}`}
+                </span>
+                <span>Extracted: {p.contribution ?? 0}</span>
+                <span>Payoff: {(p.payoff ?? 0).toFixed(2)}</span>
+              </div>
+
+              {roundResults.stage2Actions && (
+                <div className="cpr-action-details">
+                  {roundResults.stage2Actions.filter(a => a.target === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
+                    <div key={`rx-${idx}`} className="cpr-action-tag cpr-incoming">
+                      {a.actor === playerIndex ? "You" : `P${a.actor}`} {a.type.toUpperCase()}ED {isMe ? "you" : `P${pIdx}`}
+                    </div>
+                  ))}
+                  {roundResults.stage2Actions.filter(a => a.actor === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
+                    <div key={`tx-${idx}`} className="cpr-action-tag cpr-outgoing">
+                      {isMe ? "You" : `P${pIdx}`} {a.type.toUpperCase()}ED {a.target === playerIndex ? "you" : `P${a.target}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="cpr-result-summary">
+          Total Extracted: {roundResults.total ?? 0} | Group Return: {(roundResults.groupReturn ?? 0).toFixed(2)}
+        </div>
+        <button
+          type="button"
+          className="cpr-results-close-btn"
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onClose()
+          }}
+        >
+          {isFinalized ? (roundNumber >= TOTAL_ROUNDS ? "Finish Game" : "Next Round") : "Continue"}
+        </button>
+      </div>
+    </>
+  );
+}
 
 export default function CommonPoolResourceGamePage() {
   const navigate = useNavigate()
@@ -22,6 +277,9 @@ export default function CommonPoolResourceGamePage() {
   const matchId = params.get("match") || params.get("match_id")
   const mode = params.get("mode") || "online"
   const experimentId = params.get("experiment_id") || params.get("experiment")
+  const fishCount = FISH_COUNT
+  const maxFishStock = MAX_FISH_STOCK
+  const layoutCount = FISH_LAYOUT_COUNT
   const playerFingerprint = getPlayerFingerprint()
   const {
     players: wsPlayers,
@@ -30,13 +288,14 @@ export default function CommonPoolResourceGamePage() {
     connectionStatus,
     roomType,
     gameParams,
+    fishStock: wsFishStock,
     error,
     disconnect
-  } = useWebSocketPGG(matchId, playerFingerprint)
+  } = useWebSocketCPR(matchId, playerFingerprint)
 
   // Use dynamic parameters from the laboratory
-  const MAX_COINS = gameParams?.endowment || 20;
-  const TOTAL_ROUNDS = gameParams?.totalRounds || 25;
+  const MAX_COINS = 10;
+  const TOTAL_ROUNDS = gameParams?.totalRounds || 20;
   const ROUND_TIME = 30; // Standard phase time
   // ---------------------------------
   // Players
@@ -56,29 +315,18 @@ export default function CommonPoolResourceGamePage() {
   const [showSurvey, setShowSurvey] = useState(false)
   const [surveySubmitted, setSurveySubmitted] = useState(false)
   const [showGameOverPopup, setShowGameOverPopup] = useState(true)
-
+  const [fishStock, setFishStock] = useState(maxFishStock)
 
   useEffect(() => {
-    const handlePop = () => {
-      console.log("⬅️ Browser navigation → disconnect WS");
-      disconnect();
-      const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/common-pool";
-      navigate(exitPath, { replace: true });
-    };
+    if (wsFishStock !== undefined && wsFishStock !== null) {
+      setFishStock(wsFishStock)
+    }
+  }, [wsFishStock])
 
-    const handleUnload = () => {
-      console.log("❌ Page unload → disconnect WS");
-      disconnect();
-    };
+  useEffect(() => {
+    setFishStock(maxFishStock)
+  }, [matchId, maxFishStock])
 
-    window.addEventListener("popstate", handlePop);
-    window.addEventListener("beforeunload", handleUnload);
-
-    return () => {
-      window.removeEventListener("popstate", handlePop);
-      window.removeEventListener("beforeunload", handleUnload);
-    };
-  }, [disconnect, navigate]);
 
 
 
@@ -172,14 +420,6 @@ export default function CommonPoolResourceGamePage() {
     setPhase("waiting");
   };
 
-
-
-
-
-
-
-
-
   useEffect(() => {
     if (!wsPlayers || wsPlayers.length === 0) return
 
@@ -223,6 +463,10 @@ export default function CommonPoolResourceGamePage() {
           console.log("📊 Round results received:", data);
           setRoundNumber(data.round);
 
+          if (data.next_fish_stock !== undefined && data.next_fish_stock !== null) {
+            setFishStock(data.next_fish_stock)
+          }
+
           const updatedPlayers = Array.from({ length: 4 }, (_, i) => {
             const pIdx = i + 1;
             const key = `player_${pIdx}`;
@@ -232,6 +476,7 @@ export default function CommonPoolResourceGamePage() {
               id: pIdx,
               fingerprint: fingerprint,
               contribution: data.contributions[key] || 0,
+              actualCatch: data.actual_catches?.[key] || 0,
               payoff: data.payoffs[key] || 0,
               img: isYou ? redPlayerImg : playerImg,
               label: isYou ? "You" : `Player ${pIdx}`
@@ -244,7 +489,9 @@ export default function CommonPoolResourceGamePage() {
             round: data.round,
             players: updatedPlayers,
             total: data.total,
-            groupReturn: data.group_return
+            fishStock: data.fish_stock,
+            nextFishStock: data.next_fish_stock,
+            newFishBorn: data.new_fish_born
           };
 
           setRoundResults(results);
@@ -274,6 +521,7 @@ export default function CommonPoolResourceGamePage() {
               id: pIdx,
               fingerprint: fingerprint,
               contribution: data.contributions?.[key] ?? (roundResults?.players?.[i]?.contribution || 0),
+              actualCatch: data.actual_catches?.[key] ?? (roundResults?.players?.[i]?.actualCatch || 0),
               payoff: data.payoffs[key] || 0,
               img: isYou ? redPlayerImg : playerImg,
               label: isYou ? "You" : `Player ${pIdx}`
@@ -286,7 +534,9 @@ export default function CommonPoolResourceGamePage() {
             round: data.round,
             players: updatedPlayers,
             total: data.total,
-            groupReturn: data.group_return,
+            fishStock: data.fish_stock,
+            nextFishStock: data.next_fish_stock,
+            newFishBorn: data.new_fish_born,
             stage2Actions: data.actions
           };
 
@@ -316,7 +566,7 @@ export default function CommonPoolResourceGamePage() {
 
     socket.addEventListener("message", handleMessage);
     return () => socket.removeEventListener("message", handleMessage);
-  }, [socket, playerIndex]);
+  }, [socket, playerIndex, maxFishStock]);
 
 
 
@@ -404,60 +654,6 @@ export default function CommonPoolResourceGamePage() {
     setShowSurvey(false);
   };
 
-  const ResultsPopup = ({ roundResults, onClose }) => {
-    const isBasic = roomType === "basic" || !roomType;
-    const isFinalized = isBasic || (roundResults && roundResults.stage2Actions);
-
-    return (
-      <>
-        <div className="cpr-results-overlay" onClick={onClose}></div>
-        <div className="cpr-results-popup-card">
-          <h2>Round {roundResults.round} Results</h2>
-          {roundResults.players.map((p, i) => {
-            const pIdx = i + 1;
-            const isMe = pIdx === playerIndex;
-
-            return (
-              <div key={i} className="cpr-result-row-container">
-                <div className="cpr-result-row">
-                  <span style={{ fontWeight: isMe ? "bold" : "normal", color: isMe ? "#818CF8" : "inherit" }}>
-                    {isMe ? "You" : `Player ${pIdx}`}
-                  </span>
-                  <span>Contributed: {p.contribution ?? 0}</span>
-                  <span>Payoff: {(p.payoff ?? 0).toFixed(2)}</span>
-                </div>
-
-                {roundResults.stage2Actions && (
-                  <div className="cpr-action-details">
-                    {roundResults.stage2Actions.filter(a => a.target === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
-                      <div key={`rx-${idx}`} className="cpr-action-tag cpr-incoming">
-                        {a.actor === playerIndex ? "You" : `P${a.actor}`} {a.type.toUpperCase()}ED {isMe ? "you" : `P${pIdx}`}
-                      </div>
-                    ))}
-                    {roundResults.stage2Actions.filter(a => a.actor === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
-                      <div key={`tx-${idx}`} className="cpr-action-tag cpr-outgoing">
-                        {isMe ? "You" : `P${pIdx}`} {a.type.toUpperCase()}ED {a.target === playerIndex ? "you" : `P${a.target}`}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          <div className="cpr-result-summary">
-            Total Contribution: {roundResults.total ?? 0} | Group Return: {(roundResults.groupReturn ?? 0).toFixed(2)}
-          </div>
-          <button
-            className="cpr-results-close-btn"
-            onClick={onClose}
-          >
-            {isFinalized ? (roundNumber >= TOTAL_ROUNDS ? "Finish Game" : "Next Round") : "Continue"}
-          </button>
-        </div>
-      </>
-    );
-  }
-
   const rawType = (roomType || "basic").toLowerCase().trim();
   const isRewardRoom = rawType === "reward" || rawType === "mixed" || rawType === "reward&punish";
   const isPunishRoom = rawType === "punishment" || rawType === "punish" || rawType === "mixed" || rawType === "reward&punish";
@@ -536,9 +732,9 @@ export default function CommonPoolResourceGamePage() {
                 </div>
                 <h2 className="cpr-phase-title">
                   {phase === "contribution"
-                    ? "YOUR TURN TO CONTRIBUTE"
+                    ? "YOUR TURN TO EXTRACT"
                     : phase === "waiting"
-                      ? "Waiting for other players to contribute..."
+                      ? "Waiting for other players to extract..."
                       : phase === "stage2"
                         ? `STAGE 2: ${rawType.toUpperCase()}`
                         : "RESULTS"}
@@ -555,7 +751,16 @@ export default function CommonPoolResourceGamePage() {
                 </div>
 
                 <div className="cpr-common-pool-table-area">
-                  <img src={fishingPoolImg} alt="Fishing Pool" className="cpr-common-pool-table" />
+                  <LivingFishPool
+                    key={`${fishCount}-${maxFishStock}-${layoutCount}`}
+                    targetStock={fishStock}
+                    pendingExtraction={currentContribution}
+                    phase={phase}
+                    maxExtraction={MAX_COINS}
+                    fishCount={fishCount}
+                    maxFishStock={maxFishStock}
+                    layoutCount={layoutCount}
+                  />
                   {players.map((p, i) => {
                     const pos = ["top-left", "top-right", "bottom-left", "bottom-right"][i];
                     return (
@@ -619,7 +824,7 @@ export default function CommonPoolResourceGamePage() {
                     <input
                       type="range"
                       min="0"
-                      max={gameParams?.endowment || 20}
+                      max={MAX_COINS}
                       value={currentContribution}
                       onChange={handleSliderChange}
                       className="cpr-horizontal-slider"
@@ -634,7 +839,7 @@ export default function CommonPoolResourceGamePage() {
                   <div className="cpr-waiting-section">
                     <div className="cpr-waiting-animation">
                       <Loader2 className="cpr-waiting-spinner" />
-                      <p className="cpr-waiting-text">Waiting for other players to contribute...</p>
+                      <p className="cpr-waiting-text">Waiting for other players to extract...</p>
                     </div>
                   </div>
                 )}
@@ -703,7 +908,14 @@ export default function CommonPoolResourceGamePage() {
       )}
 
       {phase === "results" && roundResults && (
-        <ResultsPopup roundResults={roundResults} onClose={handleResultsClose} />
+        <ResultsPopup
+          roundResults={roundResults}
+          onClose={handleResultsClose}
+          roomType={roomType}
+          playerIndex={playerIndex}
+          roundNumber={roundNumber}
+          TOTAL_ROUNDS={TOTAL_ROUNDS}
+        />
       )}
       {connectionStatus === "error" && (
         <div className="cpr-ws-error-box">
@@ -765,7 +977,7 @@ export default function CommonPoolResourceGamePage() {
               borderRadius: '1rem',
               padding: '1.5rem',
               width: '100%',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
               <h3 style={{ marginTop: 0, marginBottom: '1rem', textAlign: 'center', fontSize: '1.1rem', color: '#818CF8' }}>Final Match Tally</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

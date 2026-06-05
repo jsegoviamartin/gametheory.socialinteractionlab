@@ -13,7 +13,59 @@ import SurveyForm from "../components/SurveyForm"
 
 
 
-// Constants moved to component scope or replaced by dynamic params
+const ResultsPopup = ({ roundResults, onClose, roomType, playerIndex, roundNumber, TOTAL_ROUNDS }) => {
+  const isBasic = roomType === "basic" || !roomType;
+  const isFinalized = isBasic || (roundResults && roundResults.stage2Actions);
+
+  return (
+    <>
+      <div className="pgg-results-overlay" onClick={onClose}></div>
+      <div className="pgg-results-popup-card">
+        <h2>Round {roundResults.round} Results</h2>
+        {roundResults.players.map((p, i) => {
+          const pIdx = i + 1;
+          const isMe = pIdx === playerIndex;
+
+          return (
+            <div key={i} className="pgg-result-row-container">
+              <div className="pgg-result-row">
+                <span style={{ fontWeight: isMe ? "bold" : "normal", color: isMe ? "#818CF8" : "inherit" }}>
+                  {isMe ? "You" : `Player ${pIdx}`}
+                </span>
+                <span>Contributed: {p.contribution ?? 0}</span>
+                <span>Payoff: {(p.payoff ?? 0).toFixed(2)}</span>
+              </div>
+
+              {roundResults.stage2Actions && (
+                <div className="pgg-action-details">
+                  {roundResults.stage2Actions.filter(a => a.target === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
+                    <div key={`rx-${idx}`} className="pgg-action-tag incoming">
+                      {a.actor === playerIndex ? "You" : `P${a.actor}`} {a.type.toUpperCase()}ED {isMe ? "you" : `P${pIdx}`}
+                    </div>
+                  ))}
+                  {roundResults.stage2Actions.filter(a => a.actor === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
+                    <div key={`tx-${idx}`} className="pgg-action-tag outgoing">
+                      {isMe ? "You" : `P${pIdx}`} {a.type.toUpperCase()}ED {a.target === playerIndex ? "you" : `P${a.target}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="pgg-result-summary">
+          Total Contribution: {roundResults.total ?? 0} | Group Return: {(roundResults.groupReturn ?? 0).toFixed(2)}
+        </div>
+        <button
+          className="results-close-btn"
+          onClick={onClose}
+        >
+          {isFinalized ? (roundNumber >= TOTAL_ROUNDS ? "Finish Game" : "Next Round") : "Continue"}
+        </button>
+      </div>
+    </>
+  );
+}
 
 export default function PublicGoodsGamePage() {
   const navigate = useNavigate()
@@ -403,59 +455,7 @@ export default function PublicGoodsGamePage() {
     setShowSurvey(false);
   };
 
-  const ResultsPopup = ({ roundResults, onClose }) => {
-    const isBasic = roomType === "basic" || !roomType;
-    const isFinalized = isBasic || (roundResults && roundResults.stage2Actions);
 
-    return (
-      <>
-        <div className="pgg-results-overlay" onClick={onClose}></div>
-        <div className="pgg-results-popup-card">
-          <h2>Round {roundResults.round} Results</h2>
-          {roundResults.players.map((p, i) => {
-            const pIdx = i + 1;
-            const isMe = pIdx === playerIndex;
-
-            return (
-              <div key={i} className="pgg-result-row-container">
-                <div className="pgg-result-row">
-                  <span style={{ fontWeight: isMe ? "bold" : "normal", color: isMe ? "#818CF8" : "inherit" }}>
-                    {isMe ? "You" : `Player ${pIdx}`}
-                  </span>
-                  <span>Contributed: {p.contribution ?? 0}</span>
-                  <span>Payoff: {(p.payoff ?? 0).toFixed(2)}</span>
-                </div>
-
-                {roundResults.stage2Actions && (
-                  <div className="pgg-action-details">
-                    {roundResults.stage2Actions.filter(a => a.target === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
-                      <div key={`rx-${idx}`} className="pgg-action-tag incoming">
-                        {a.actor === playerIndex ? "You" : `P${a.actor}`} {a.type.toUpperCase()}ED {isMe ? "you" : `P${pIdx}`}
-                      </div>
-                    ))}
-                    {roundResults.stage2Actions.filter(a => a.actor === pIdx && (a.actor === playerIndex || a.target === playerIndex)).map((a, idx) => (
-                      <div key={`tx-${idx}`} className="pgg-action-tag outgoing">
-                        {isMe ? "You" : `P${pIdx}`} {a.type.toUpperCase()}ED {a.target === playerIndex ? "you" : `P${a.target}`}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          <div className="pgg-result-summary">
-            Total Contribution: {roundResults.total ?? 0} | Group Return: {(roundResults.groupReturn ?? 0).toFixed(2)}
-          </div>
-          <button
-            className="results-close-btn"
-            onClick={onClose}
-          >
-            {isFinalized ? (roundNumber >= TOTAL_ROUNDS ? "Finish Game" : "Next Round") : "Continue"}
-          </button>
-        </div>
-      </>
-    );
-  }
 
   const rawType = (roomType || "basic").toLowerCase().trim();
   const isRewardRoom = rawType === "reward" || rawType === "mixed" || rawType === "reward&punish";
@@ -704,7 +704,14 @@ export default function PublicGoodsGamePage() {
       )}
 
       {phase === "results" && roundResults && (
-        <ResultsPopup roundResults={roundResults} onClose={handleResultsClose} />
+        <ResultsPopup
+          roundResults={roundResults}
+          onClose={handleResultsClose}
+          roomType={roomType}
+          playerIndex={playerIndex}
+          roundNumber={roundNumber}
+          TOTAL_ROUNDS={TOTAL_ROUNDS}
+        />
       )}
       {connectionStatus === "error" && (
         <div className="ws-error-box">

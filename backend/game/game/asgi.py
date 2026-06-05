@@ -10,12 +10,13 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from the_game.routing import websocket_urlpatterns as pd_ws
 from ultimatum.routing import websocket_urlpatterns as ult_ws
 from public_goods.routing import websocket_urlpatterns as pg_ws 
+from common_pool.routing import websocket_urlpatterns as cpr_ws
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AuthMiddlewareStack(
         URLRouter(
-            pd_ws + ult_ws + pg_ws  
+            pd_ws + ult_ws + pg_ws + cpr_ws
         )
     ),
 })

@@ -13,6 +13,12 @@ export default function PayoffsTable({ history, playerIndex }) {
     return roundData.players[playerIndex]?.contribution ?? ""
   }
 
+  const getPlayerActualCatch = (roundNumber, playerIndex) => {
+    const roundData = getRoundData(roundNumber)
+    if (!roundData) return ""
+    return roundData.players[playerIndex]?.actualCatch ?? ""
+  }
+
   const getPlayerPayoff = (roundNumber, playerIndex) => {
     const roundData = getRoundData(roundNumber)
     if (!roundData) return ""
@@ -23,6 +29,12 @@ export default function PayoffsTable({ history, playerIndex }) {
     const roundData = getRoundData(roundNumber)
     if (!roundData) return ""
     return roundData.total ?? ""
+  }
+
+  const getTotalActualCatch = (roundNumber) => {
+    const roundData = getRoundData(roundNumber)
+    if (!roundData || !roundData.players) return ""
+    return roundData.players.reduce((sum, p) => sum + (p.actualCatch || 0), 0)
   }
 
   const getPlayerActions = (roundNumber, pRowIdx0) => {
@@ -56,21 +68,35 @@ export default function PayoffsTable({ history, playerIndex }) {
       .toFixed(2)
   }
 
+  const getFishLeft = (roundNumber) => {
+    const rd = getRoundData(roundNumber)
+    if (!rd || rd.fishStock == null) return ""
+    const catchTotal = getTotalActualCatch(roundNumber) || 0
+    return Math.max(0, rd.fishStock - catchTotal)
+  }
+
+  const getNewFishBorn = (roundNumber) => {
+    const left = getFishLeft(roundNumber)
+    if (left === "") return ""
+    const result = Math.round(0.8 * left * (1 - left / 100))
+    return `round(0.8 * ${left} * (1 - ${left} / 100)) = ${result}`
+  }
+
   if (!rounds.length) {
     return (
       <>
-        <h3 className="cpr-payoffs-title">Game History</h3>
-        <p>No rounds played yet.</p>
+        <h3 className="cpr-pgg-payoffs-title">Game History</h3>
+        <p style={{ color: "#fff", textAlign: "center" }}>No rounds played yet.</p>
       </>
     )
   }
 
   return (
     <>
-      <h3 className="cpr-payoffs-title">Game History</h3>
+      <h3 className="cpr-pgg-payoffs-title">Game History</h3>
 
-      <div className="cpr-payoffs-wrapper">
-        <table className="cpr-payoffs-table">
+      <div className="cpr-pgg-payoffs-wrapper">
+        <table className="cpr-pgg-payoffs-table">
           <thead>
             <tr>
               <th className="cpr-player-col">Round</th>
@@ -79,66 +105,129 @@ export default function PayoffsTable({ history, playerIndex }) {
                   {r}
                 </th>
               ))}
-              <th className="cpr-total-col">Total</th>
+              <th className="cpr-pgg-total-col">Total</th>
             </tr>
           </thead>
 
           <tbody>
+            {/* Starting Fish Stock */}
+            <tr>
+              <td className="cpr-pgg-payoffs-player-label" style={{ color: "#38bdf8", fontWeight: "bold" }}>
+                Starting Fish Stock
+              </td>
+              {rounds.map((r) => {
+                const rd = getRoundData(r)
+                return <td key={r} style={{ color: "#38bdf8", fontWeight: "bold" }}>{rd?.fishStock ?? ""}</td>
+              })}
+              <td className="cpr-pgg-empty-total-cell">-</td>
+            </tr>
+
+            {/* Contributions / Extraction requests */}
             {[0, 1, 2, 3].map((pIdx) => (
               <tr key={`contrib-${pIdx}`}>
-                <td className="cpr-payoffs-player-label">
-                  {`P${pIdx + 1} Contribution`}
+                <td className="cpr-pgg-payoffs-player-label">
+                  {`Player ${pIdx + 1} Harvest Request`}
                 </td>
                 {rounds.map((r) => (
                   <td key={r}>{getPlayerContribution(r, pIdx)}</td>
                 ))}
-                <td className="cpr-empty-total-cell">-</td>
+                <td className="cpr-pgg-empty-total-cell">-</td>
               </tr>
             ))}
 
+            {/* Total Harvest Requests */}
+            <tr style={{ borderBottom: "2px solid rgba(255,255,255,0.3)" }}>
+              <td className="cpr-pgg-payoffs-player-label" style={{ fontStyle: "italic" }}>Total Requests</td>
+              {rounds.map((r) => (
+                <td key={r} style={{ fontStyle: "italic" }}>{getTotalContribution(r)}</td>
+              ))}
+              <td className="cpr-pgg-empty-total-cell">-</td>
+            </tr>
+
+            {/* Actual Catches */}
+            {[0, 1, 2, 3].map((pIdx) => (
+              <tr key={`actual-${pIdx}`}>
+                <td className="cpr-pgg-payoffs-player-label">
+                  {`Player ${pIdx + 1} Actual Catch`}
+                </td>
+                {rounds.map((r) => (
+                  <td key={r}>{getPlayerActualCatch(r, pIdx)}</td>
+                ))}
+                <td className="cpr-pgg-empty-total-cell">-</td>
+              </tr>
+            ))}
+
+            {/* Total Actual Catch */}
+            <tr style={{ borderBottom: "2px solid rgba(255,255,255,0.3)" }}>
+              <td className="cpr-pgg-payoffs-player-label" style={{ fontStyle: "italic" }}>Total Actual Catch</td>
+              {rounds.map((r) => (
+                <td key={r} style={{ fontStyle: "italic" }}>{getTotalActualCatch(r)}</td>
+              ))}
+              <td className="cpr-pgg-empty-total-cell">-</td>
+            </tr>
+
+            {/* Stage 2 Actions */}
             {[0, 1, 2, 3].map((pIdx) => (
               <tr key={`actions-${pIdx}`}>
-                <td className="cpr-payoffs-player-label">
-                  {`P${pIdx + 1} Actions`}
+                <td className="cpr-pgg-payoffs-player-label">
+                  {`Player ${pIdx + 1} Stage 2 Actions`}
                 </td>
                 {rounds.map((r) => (
                   <td key={r} style={{ fontSize: "0.7rem", color: "#CBD5E1" }}>
                     {getPlayerActions(r, pIdx)}
                   </td>
                 ))}
-                <td className="cpr-empty-total-cell">-</td>
+                <td className="cpr-pgg-empty-total-cell">-</td>
               </tr>
             ))}
 
+            {/* Player Payoffs */}
             {[0, 1, 2, 3].map((pIdx) => (
               <tr key={`payoff-${pIdx}`}>
-                <td className="cpr-payoffs-player-label">
-                  {`P${pIdx + 1} Payoff`}
+                <td className="cpr-pgg-payoffs-player-label" style={{ fontWeight: "600" }}>
+                  {`Player ${pIdx + 1} Payoff`}
                 </td>
                 {rounds.map((r) => (
-                  <td key={r}>{getPlayerPayoff(r, pIdx)}</td>
+                  <td key={r} style={{ fontWeight: "600" }}>{getPlayerPayoff(r, pIdx)}</td>
                 ))}
-                <td className="cpr-running-total-cell">
+                <td className="cpr-pgg-running-total-cell">
                   {getPlayerTotalPayoff(pIdx)}
                 </td>
               </tr>
             ))}
 
-            <tr>
-              <td className="cpr-payoffs-player-label">Total Contribution</td>
+            {/* Fish Left */}
+            <tr style={{ borderTop: "2px solid rgba(255,255,255,0.3)" }}>
+              <td className="cpr-pgg-payoffs-player-label" style={{ color: "#facc15" }}>
+                Fish Left (Stock - Total Catch)
+              </td>
               {rounds.map((r) => (
-                <td key={r}>{getTotalContribution(r)}</td>
+                <td key={r} style={{ color: "#facc15" }}>{getFishLeft(r)}</td>
               ))}
-              <td className="cpr-empty-total-cell">-</td>
+              <td className="cpr-pgg-empty-total-cell">-</td>
             </tr>
 
+            {/* New Fish Born */}
             <tr>
-              <td className="cpr-payoffs-player-label">Group Return</td>
+              <td className="cpr-pgg-payoffs-player-label" style={{ color: "#facc15" }}>
+                New Fish Born Formula
+              </td>
+              {rounds.map((r) => (
+                <td key={r} style={{ color: "#facc15" }}>{getNewFishBorn(r)}</td>
+              ))}
+              <td className="cpr-pgg-empty-total-cell">-</td>
+            </tr>
+
+            {/* Next Fish Stock */}
+            <tr>
+              <td className="cpr-pgg-payoffs-player-label" style={{ color: "#34d399", fontWeight: "bold" }}>
+                Next Fish Stock
+              </td>
               {rounds.map((r) => {
                 const rd = getRoundData(r)
-                return <td key={r}>{rd?.groupReturn?.toFixed(2) ?? ""}</td>
+                return <td key={r} style={{ color: "#34d399", fontWeight: "bold" }}>{rd?.nextFishStock ?? ""}</td>
               })}
-              <td className="cpr-empty-total-cell">-</td>
+              <td className="cpr-pgg-empty-total-cell">-</td>
             </tr>
           </tbody>
         </table>

@@ -143,7 +143,6 @@ export default function CommonPoolResourceHomePage() {
                     <br/>
                     <code>New Fish = round(0.8 × fish_left × (1 - fish_left / 100))</code>
                   </li>
-                  <li>The game proceeds for <strong>20 rounds</strong>.</li>
                 </ul>
               </div>
 

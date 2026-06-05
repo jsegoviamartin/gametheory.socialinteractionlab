@@ -14,6 +14,12 @@ const PG_API_BASE_URL =
     ? "/api/public-goods"
     : `${window.location.protocol}//${window.location.host}/api/public-goods`
 
+// Common Pool Resource
+const CPR_API_BASE_URL =
+  window.location.hostname === "localhost"
+    ? "/api/common-pool"
+    : `${window.location.protocol}//${window.location.host}/api/common-pool`
+
 // Strategic Games (2x2)
 const THE_GAME_API_BASE_URL =
   window.location.hostname === "localhost"
@@ -157,6 +163,85 @@ export const gameApi = {
     const res = await fetch(`${PG_API_BASE_URL}/match-stats/${matchId}/?t=${Date.now()}`)
     if (!res.ok) throw new Error(`HTTP error ${res.status}`)
     return res.json()
+  },
+
+  // -------------------------------
+  // Common Pool Endpoints
+  // -------------------------------
+  async createMatchCommonPool(room, gameMode, playerFingerprint) {
+    console.log("🐟 [Common Pool] Creating match:", { room, gameMode, playerFingerprint })
+
+    const res = await fetch(`${CPR_API_BASE_URL}/create-match/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        room: room,
+        game_mode: gameMode,
+        player_fingerprint: playerFingerprint,
+      }),
+    })
+
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
+
+    const data = await res.json()
+    console.log("✅ [Common Pool] Match created/joined:", data)
+    return data
+  },
+
+  async getCommonPoolMatchStats(matchId) {
+    console.log("📊 [Common Pool] Getting stats for:", matchId)
+    const res = await fetch(`${CPR_API_BASE_URL}/match-stats/${matchId}/?t=${Date.now()}`)
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
+    return res.json()
+  },
+
+  async submitSurveyCommonPool(matchId, playerFingerprint, surveyData) {
+    console.log("📝 [Common Pool] Submitting survey:", { matchId, playerFingerprint, surveyData })
+    const res = await fetch(`${CPR_API_BASE_URL}/submit-survey/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        match_id: matchId,
+        player_fingerprint: playerFingerprint,
+        survey_data: surveyData,
+      }),
+    })
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
+    return res.json()
+  },
+
+  connectCommonPoolWs(matchId, onMessageCallback) {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws"
+    const wsUrl = `${protocol}://${window.location.host}/ws/common-pool/${matchId}/`
+    console.log("🌐 Connecting CPR WebSocket to:", wsUrl)
+
+    const ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => console.log("✅ CPR WebSocket connected:", wsUrl)
+    ws.onclose = () => console.log("❌ CPR WebSocket disconnected:", wsUrl)
+    ws.onerror = (err) => console.error("⚠️ CPR WebSocket error:", err)
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        onMessageCallback(data)
+      } catch (e) {
+        console.error("⚠️ CPR WebSocket parse error:", e)
+      }
+    }
+
+    return ws
+  },
+
+  submitHarvest(ws, playerFingerprint, harvest, roundNumber) {
+    this.sendWsMessage(ws, "contribute", {
+      player_fingerprint: playerFingerprint,
+      amount: harvest,
+      round: roundNumber,
+    })
+  },
+
+  joinCommonPoolRoom(ws, playerFingerprint) {
+    this.sendWsMessage(ws, "join", { player_fingerprint: playerFingerprint })
   },
 
   // -------------------------------

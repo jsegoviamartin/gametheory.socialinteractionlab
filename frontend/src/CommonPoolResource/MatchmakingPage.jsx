@@ -70,7 +70,7 @@ export default function CommonPoolResourceMatchmakingPage() {
           `📡 Polling match ${matchId} (attempt ${pollAttempts.current})`
         )
 
-        const stats = await gameApi.getPublicGoodsMatchStats(matchId)
+        const stats = await gameApi.getCommonPoolMatchStats(matchId)
 
         if (!mountedRef.current) return
 
@@ -122,11 +122,10 @@ export default function CommonPoolResourceMatchmakingPage() {
       
       let matchData;
       if (experimentId) {
-        // Use custom laboratory matchmaking if experimentId is present
-        matchData = await gameApi.matchmakeCustomPublicGoods(experimentId, playerFingerprint, conditionId)
+        // Fallback to standard lobby creation for CPR as custom/experiment is ignored for now
+        matchData = await gameApi.createMatchCommonPool(room, mode, playerFingerprint)
       } else {
-        // Otherwise use standard public matchmaking
-        matchData = await gameApi.createMatchPublicGoods(room, mode, playerFingerprint)
+        matchData = await gameApi.createMatchCommonPool(room, mode, playerFingerprint)
       }
 
       if (!mountedRef.current) return

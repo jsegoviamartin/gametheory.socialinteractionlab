@@ -203,9 +203,9 @@
   padding: 0.5rem 1rem;
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
   display: inline-block;
   margin: 0;
+  transform: translateZ(0);
 }
 
 .cpr-player-id {
@@ -216,9 +216,9 @@
   padding: 0.5rem 1rem;
   border-radius: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
   display: inline-block;
   margin: 0;
+  transform: translateZ(0);
 }
 
 .cpr-connection-status {
@@ -1877,24 +1877,21 @@
 }
 
 .cpr-submit-button-visual::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
+  display: none;
 }
 
 .cpr-submit-button-visual:hover:not(:disabled)::before {
-  left: 100%;
+  left: auto;
 }
 
 .cpr-submit-button-visual:hover:not(:disabled) {
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   transform: translateY(-2px);
   box-shadow: 0 12px 25px rgba(239, 68, 68, 0.5);
+}
+
+.cpr-submit-button-visual:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .cpr-submit-button-visual:disabled {
@@ -2310,12 +2307,12 @@
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: transform 0.2s, background 0.2s;
+  transition: none;
   text-transform: uppercase;
 }
 
 .cpr-stage2-btn:hover {
-  transform: scale(1.1);
+  opacity: 1;
 }
 
 .cpr-reward-btn {
@@ -2373,8 +2370,7 @@
   width: 90%;
   max-width: 30rem;
   height: 38rem;
-  background: rgba(30, 41, 59, 0.95);
-  backdrop-filter: blur(20px);
+  background: rgb(30, 41, 59);
   box-shadow: 0 35px 80px -15px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.1) inset;
   border-radius: 1.5rem;
@@ -2452,6 +2448,7 @@
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
   z-index: 9998;
+  pointer-events: auto;
 }
 
 .cpr-countdown-overlay {
@@ -2574,13 +2571,17 @@
 .cpr-results-close-btn {
   margin-top: 2rem;
   padding: 1rem 2rem;
+  min-width: 12rem;
+  min-height: 3.25rem;
   border-radius: 1rem;
   border: none;
   background: #6366f1;
   color: white;
   font-weight: bold;
   cursor: pointer;
+  touch-action: manipulation;
   align-self: center;
+  flex: 0 0 auto;
   transition: all 0.2s ease;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
@@ -2643,12 +2644,353 @@
   margin: 0 auto;
 }
 
-.cpr-common-pool-table {
+.cpr-common-pool-table,
+.cpr-living-fish-pool {
   position: absolute;
   top: 50%;
   left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.cpr-common-pool-table {
   width: 254px;
   height: auto;
-  transform: translate(-50%, -50%);
   z-index: 1;
+}
+
+.cpr-living-fish-pool {
+  width: 315px;
+  height: 205px;
+  border-radius: 48% 52% 50% 50% / 44% 46% 54% 56%;
+  overflow: hidden;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 105%, rgba(20, 84, 97, 0.92) 0%, rgba(11, 57, 78, 0.95) 46%, rgba(4, 24, 45, 0.98) 100%),
+    linear-gradient(135deg, #0ea5e9 0%, #0891b2 45%, #064e75 100%);
+  border: 7px solid rgba(171, 219, 229, 0.72);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.38),
+    inset 0 18px 28px rgba(255, 255, 255, 0.2),
+    inset 0 -24px 44px rgba(0, 15, 34, 0.58);
+  isolation: isolate;
+}
+
+.cpr-living-fish-pool::before,
+.cpr-living-fish-pool::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 22;
+}
+
+.cpr-living-fish-pool::before {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 0 34px rgba(255, 255, 255, 0.16);
+}
+
+.cpr-living-fish-pool::after {
+  background:
+    radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.35), transparent 12%),
+    radial-gradient(circle at 72% 16%, rgba(255, 255, 255, 0.22), transparent 16%);
+  mix-blend-mode: screen;
+}
+
+.cpr-water-bed,
+.cpr-water-surface,
+.cpr-water-shimmer,
+.cpr-fish-field,
+.cpr-bubble-field {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.cpr-water-bed {
+  background:
+    radial-gradient(ellipse at 45% 82%, rgba(7, 31, 44, 0.62) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 72%, rgba(26, 118, 129, 0.42) 0%, transparent 42%);
+  z-index: 0;
+}
+
+.cpr-water-surface {
+  z-index: 16;
+  background:
+    repeating-radial-gradient(ellipse at 50% 46%, rgba(255, 255, 255, 0.18) 0 1px, transparent 2px 11px),
+    linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.12) 34%, transparent 66%);
+  opacity: 0.5;
+  animation: cpr-water-breathe 5.5s ease-in-out infinite;
+}
+
+.cpr-water-shimmer {
+  z-index: 20;
+  background:
+    linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.2) 36%, transparent 52%),
+    linear-gradient(65deg, transparent 25%, rgba(125, 211, 252, 0.18) 46%, transparent 62%);
+  transform: translateX(-34%);
+  opacity: 0.52;
+  animation: cpr-water-shimmer 6.2s ease-in-out infinite;
+}
+
+.cpr-fish-stock-meter {
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  z-index: 30;
+  min-width: 92px;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #ecfeff;
+  background: rgba(2, 32, 53, 0.56);
+  border: 1px solid rgba(186, 230, 253, 0.36);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.cpr-fish-stock-meter span {
+  font-size: 1.05rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.cpr-fish-stock-meter small {
+  font-size: 0.68rem;
+  line-height: 1;
+  font-weight: 700;
+  color: rgba(224, 242, 254, 0.82);
+  white-space: nowrap;
+}
+
+.cpr-fish-field {
+  z-index: 8;
+  inset: 4px 8px;
+  overflow: hidden;
+  clip-path: ellipse(49% 46% at 50% 50%);
+  contain: layout paint;
+}
+
+.cpr-stage2-btn,
+.cpr-skip-stage-btn,
+.cpr-leave-game-btn {
+  touch-action: manipulation;
+  transform: none;
+  backface-visibility: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cpr-stage2-btn:hover,
+.cpr-stage2-btn:active,
+.cpr-skip-stage-btn:hover,
+.cpr-skip-stage-btn:active,
+.cpr-leave-game-btn:hover,
+.cpr-leave-game-btn:active {
+  transform: none !important;
+}
+
+.cpr-stage2-btn,
+.cpr-skip-stage-btn,
+.cpr-leave-game-btn {
+  animation: none !important;
+  transition-property: background, background-color, box-shadow, color, opacity !important;
+}
+
+.cpr-fish {
+  position: absolute;
+  top: var(--fish-y);
+  left: var(--fish-x);
+  width: 26px;
+  height: 17px;
+  opacity: 0;
+  filter: blur(var(--fish-blur)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.2));
+  transition: opacity 0.75s ease, filter 0.75s ease;
+  animation: cpr-fish-swim var(--fish-duration) ease-in-out infinite;
+  animation-delay: var(--fish-delay);
+  contain: layout paint;
+  will-change: transform, opacity;
+}
+
+.cpr-fish-visible {
+  opacity: var(--fish-opacity);
+}
+
+.cpr-fish-hidden {
+  opacity: 0 !important;
+  visibility: hidden;
+  animation-play-state: paused;
+}
+
+.cpr-fish-hidden .cpr-fish-body {
+  animation-play-state: paused;
+}
+
+.cpr-fish-body {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 21px;
+  height: 10px;
+  border-radius: 65% 42% 42% 65%;
+  background:
+    linear-gradient(90deg, hsla(var(--fish-hue-start), 86%, 72%, 0.98), hsla(var(--fish-hue-end), 92%, 54%, 0.98)),
+    radial-gradient(circle at 68% 38%, rgba(255, 255, 255, 0.65), transparent 18%);
+  box-shadow:
+    inset 0 1px 3px rgba(255, 255, 255, 0.36),
+    inset 0 -2px 4px rgba(0, 52, 79, 0.28);
+  transform: translate(-50%, -50%) scale(var(--fish-scale));
+  transform-origin: center;
+  animation: cpr-fish-wiggle 0.82s ease-in-out infinite;
+}
+
+.cpr-fish-body::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 8px solid hsla(var(--fish-hue-start), 86%, 58%, 0.95);
+  transform: translateY(-50%);
+}
+
+.cpr-fish-body::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  width: 2.5px;
+  height: 2.5px;
+  border-radius: 50%;
+  background: rgba(5, 15, 25, 0.82);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.42);
+}
+
+.cpr-bubble-field {
+  z-index: 18;
+  overflow: hidden;
+}
+
+.cpr-bubble {
+  position: absolute;
+  bottom: -14px;
+  border-radius: 50%;
+  border: 1px solid rgba(224, 242, 254, 0.7);
+  background: radial-gradient(circle at 34% 32%, rgba(255, 255, 255, 0.78), rgba(186, 230, 253, 0.22) 42%, transparent 72%);
+  opacity: 0;
+  animation: cpr-bubble-rise linear infinite;
+}
+
+.cpr-fish-pool-stressed {
+  background:
+    radial-gradient(circle at 50% 105%, rgba(60, 93, 75, 0.92) 0%, rgba(23, 83, 83, 0.95) 46%, rgba(5, 35, 53, 0.98) 100%),
+    linear-gradient(135deg, #0e7490 0%, #0f766e 48%, #064e3b 100%);
+}
+
+.cpr-fish-pool-low {
+  background:
+    radial-gradient(circle at 50% 105%, rgba(58, 76, 60, 0.94) 0%, rgba(21, 57, 59, 0.95) 46%, rgba(5, 25, 37, 0.98) 100%),
+    linear-gradient(135deg, #0f766e 0%, #155e75 54%, #1e293b 100%);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.42),
+    inset 0 16px 28px rgba(255, 255, 255, 0.12),
+    inset 0 -26px 46px rgba(0, 10, 22, 0.66);
+}
+
+.cpr-pool-harvesting .cpr-water-shimmer {
+  opacity: 0.78;
+  animation-duration: 3.2s;
+}
+
+.cpr-pool-harvesting .cpr-fish-visible .cpr-fish-body {
+  animation-duration: 0.48s;
+}
+
+@keyframes cpr-fish-swim {
+  0% {
+    transform: translate3d(var(--fish-swim-start), 0, 0) rotate(-2deg) scaleX(1);
+  }
+
+  25% {
+    transform: translate3d(0, var(--fish-drift), 0) rotate(2deg) scaleX(1);
+  }
+
+  49% {
+    transform: translate3d(var(--fish-swim-end), calc(var(--fish-drift) * -0.45), 0) rotate(-1deg) scaleX(1);
+  }
+
+  50% {
+    transform: translate3d(var(--fish-swim-end), calc(var(--fish-drift) * -0.45), 0) rotate(-1deg) scaleX(-1);
+  }
+
+  75% {
+    transform: translate3d(0, calc(var(--fish-drift) * 0.55), 0) rotate(2deg) scaleX(-1);
+  }
+
+  99% {
+    transform: translate3d(var(--fish-swim-start), 0, 0) rotate(-2deg) scaleX(-1);
+  }
+
+  100% {
+    transform: translate3d(var(--fish-swim-start), 0, 0) rotate(-2deg) scaleX(1);
+  }
+}
+
+@keyframes cpr-fish-wiggle {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(var(--fish-scale)) rotate(-3deg);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(var(--fish-scale)) rotate(4deg);
+  }
+}
+
+@keyframes cpr-bubble-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.55);
+  }
+
+  15% {
+    opacity: 0.65;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(18px, -220px, 0) scale(1.15);
+  }
+}
+
+@keyframes cpr-water-breathe {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+
+  50% {
+    transform: scale(1.035) rotate(1deg);
+  }
+}
+
+@keyframes cpr-water-shimmer {
+  0% {
+    transform: translateX(-42%) rotate(-3deg);
+  }
+
+  50% {
+    transform: translateX(18%) rotate(2deg);
+  }
+
+  100% {
+    transform: translateX(44%) rotate(-2deg);
+  }
 }

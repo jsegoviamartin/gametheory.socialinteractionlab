@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/prisoners/', include('the_game.urls')),
     path('api/ultimatum/', include('ultimatum.urls')), 
     path('api/public-goods/', include('public_goods.urls')),
+    path('api/common-pool/', include('common_pool.urls')),
     path('api/accounts/', include('accounts.urls')),
     path('api/custom-rooms/', include('custom_rooms.urls')),
     path('account/two_factor/setup/', DebugSetupView.as_view(), name='setup'),

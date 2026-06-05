@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     'the_game',
     'ultimatum', 
     'public_goods',
+    'common_pool',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
