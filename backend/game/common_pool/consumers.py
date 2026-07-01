@@ -7,6 +7,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
 from .models import CommonPoolGameData
+from game.exports import export_common_pool_all
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,11 @@ TOTAL_ROUNDS = 20
 INITIAL_FISH_STOCK = 100
 MAX_FISH_STOCK = 100
 MAX_EXTRACTION = 10
+
+REWARD_COST = 1.0
+REWARD_VALUE = 4.0
+PUNISH_COST = 1.0
+PUNISH_VALUE = 4.0
 
 class CommonPoolConsumer(AsyncWebsocketConsumer):
     """
@@ -140,8 +146,8 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                 logger.warning(f"⚠️ CPR extraction round mismatch: client={client_round}, server={round_row.round_number}")
                 return
 
-            # Keep extraction within limits (0 to 10)
-            amount = max(0, min(10, int(amount)))
+            # Keep extraction within limits
+            amount = max(0, min(round_row.max_extraction, int(amount)))
 
             await self.save_round_extraction(round_row.id, self.player_index, amount)
 
@@ -215,7 +221,7 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
         if not last_row: return None
 
         if last_row.round_completed_at is not None:
-            if last_row.round_number >= TOTAL_ROUNDS:
+            if last_row.round_number >= last_row.total_rounds:
                 return last_row
 
             next_num = last_row.round_number + 1
@@ -231,7 +237,14 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                     "initial_fish_stock": r1.initial_fish_stock,
                     "max_fish_stock": r1.max_fish_stock,
                     "max_extraction": r1.max_extraction,
-                    "fish_stock": last_row.next_fish_stock if last_row.next_fish_stock is not None else 100,
+                    "final_bonus_multiplier": r1.final_bonus_multiplier,
+                    "experiment_id": r1.experiment_id,
+                    "condition_id": r1.condition_id,
+                    "reward_cost": r1.reward_cost,
+                    "reward_value": r1.reward_value,
+                    "punishment_cost": r1.punishment_cost,
+                    "punishment_value": r1.punishment_value,
+                    "fish_stock": last_row.next_fish_stock if last_row.next_fish_stock is not None else r1.initial_fish_stock,
                     "player_1_fingerprint": r1.player_1_fingerprint,
                     "player_2_fingerprint": r1.player_2_fingerprint,
                     "player_3_fingerprint": r1.player_3_fingerprint,
@@ -294,7 +307,7 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
         for i in [2, 3, 4]:
             field = f"player_{i}_extraction"
             if getattr(row, field) is None:
-                setattr(row, field, random.randint(0, 10))
+                setattr(row, field, random.randint(0, row.max_extraction))
         row.save()
 
     @database_sync_to_async
@@ -318,6 +331,33 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
         setattr(row, f"player_{player_index}_stage2_done", True)
         
         if row.game_mode == "bot":
+            # BOTS: Perform random actions before finishing
+            room_type = (row.room_type or "basic").lower().strip()
+            can_reward = "reward" in room_type or "mixed" in room_type
+            can_punish = "punish" in room_type or "mixed" in room_type
+            
+            # Use local list to avoid multiple saves
+            new_actions = list(row.round_actions)
+
+            if can_reward or can_punish:
+                for b_idx in [2, 3, 4]:
+                    targets = [1, 2, 3, 4]
+                    targets.remove(b_idx)
+                    target = random.choice(targets)
+                    
+                    possible_actions = []
+                    if can_reward: possible_actions.append("reward")
+                    if can_punish: possible_actions.append("punish")
+                    
+                    if possible_actions:
+                        action = random.choice(possible_actions)
+                        new_actions.append({
+                            "actor": b_idx,
+                            "target": target,
+                            "type": action
+                        })
+
+            row.round_actions = new_actions
             row.player_2_stage2_done = True
             row.player_3_stage2_done = True
             row.player_4_stage2_done = True
@@ -349,6 +389,8 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def safe_finalize_round(self, row_id):
         from django.db import transaction
+        should_export = False
+        results = None
         try:
             with transaction.atomic():
                 row = CommonPoolGameData.objects.select_for_update().get(id=row_id)
@@ -390,10 +432,10 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                 actual_total_catch = sum(catches)
                 fish_left = max(0, stock - actual_total_catch)
                 
-                new_fish_born = round(0.8 * fish_left * (1 - fish_left / 100))
+                new_fish_born = round(0.8 * fish_left * (1 - fish_left / row.max_fish_stock))
                 row.new_fish_born = new_fish_born
                 
-                next_stock = min(100, fish_left + new_fish_born)
+                next_stock = min(row.max_fish_stock, fish_left + new_fish_born)
                 row.next_fish_stock = next_stock
                 
                 payoffs = [float(c) for c in catches]
@@ -419,7 +461,7 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                     setattr(row, f"player_{p_num}_cumulative_payoff", curr_cum_p + payoffs[i])
                 
                 if is_final_round:
-                    bonus = 0.4 * next_stock
+                    bonus = row.final_bonus_multiplier * next_stock
                     for i in range(4):
                         p_num = i + 1
                         if row.room_type == "basic":
@@ -438,8 +480,9 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                 row.save()
                 if is_final_round and r1 != row:
                     r1.save()
-                
-                return {
+
+                should_export = is_final_round and row.room_type == "basic"
+                results = {
                     "round": row.round_number,
                     "room_type": row.room_type,
                     "contributions": {f"player_{i+1}": reqs[i] for i in range(4)},
@@ -461,63 +504,140 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
             logger.error(f"Finalize CPR error: {e}")
             return None
 
+        if should_export:
+            try:
+                export_common_pool_all()
+            except Exception as e:
+                logger.error(f"CPR export failed after final basic round: {e}")
+
+        return results
+
     @database_sync_to_async
     def finalize_stage_2(self, row_id):
-        # Per user request, keep logic simple/blank for now.
-        # We just finalize the round.
+        from django.db import transaction
+        should_export = False
+        results = None
         try:
-            row = CommonPoolGameData.objects.get(id=row_id)
-            if row.round_completed_at is not None: return None
-            
-            payoffs = [
-                row.player_1_stage1_payoff or 0,
-                row.player_2_stage1_payoff or 0,
-                row.player_3_stage1_payoff or 0,
-                row.player_4_stage1_payoff or 0
-            ]
-            
-            for i in range(4):
-                setattr(row, f"player_{i+1}_payoff", payoffs[i])
+            with transaction.atomic():
+                row = CommonPoolGameData.objects.select_for_update().get(id=row_id)
+                if row.round_completed_at is not None: return None
                 
-            row.round_completed_at = timezone.now()
-            
-            is_final_round = (row.round_number == row.total_rounds)
-            if row.round_number == 1:
-                r1 = row
-            else:
-                r1 = CommonPoolGameData.objects.get(match_id=self.match_id, round_number=1)
+                # Fetch all actions for this round from the row itself
+                actions = row.round_actions
                 
-            if is_final_round:
-                r1.completed_at = timezone.now()
+                # Start from stage1 payoffs
+                payoffs = [
+                    row.player_1_stage1_payoff or 0.0,
+                    row.player_2_stage1_payoff or 0.0,
+                    row.player_3_stage1_payoff or 0.0,
+                    row.player_4_stage1_payoff or 0.0
+                ]
                 
-            row.save()
-            if is_final_round and r1 != row:
-                r1.save()
-                
-            return {
-                "type": "stage2_results",
-                "round": row.round_number,
-                "room_type": row.room_type,
-                "payoffs": {f"player_{i+1}": payoffs[i] for i in range(4)},
-                "players": {
-                    "player_1": row.player_1_fingerprint,
-                    "player_2": row.player_2_fingerprint,
-                    "player_3": row.player_3_fingerprint,
-                    "player_4": row.player_4_fingerprint,
-                },
-                "actions": row.round_actions,
-                "total": row.total_extractions,
-                "group_return": 0,
-                "contributions": {
-                    "player_1": row.player_1_extraction,
-                    "player_2": row.player_2_extraction,
-                    "player_3": row.player_3_extraction,
-                    "player_4": row.player_4_extraction,
-                },
-            }
+                # Master row (Round 1) to track cumulative totals
+                if row.round_number == 1:
+                    r1 = row
+                else:
+                    r1 = CommonPoolGameData.objects.get(match_id=self.match_id, round_number=1)
+
+                for act in actions:
+                    actor_idx = act['actor']
+                    target_idx = act['target']
+                    action_type = act['type']
+                    
+                    # Actor pays cost
+                    cost = row.reward_cost if action_type == 'reward' else row.punishment_cost
+                    payoffs[actor_idx - 1] -= cost
+                    
+                    # Target receives impact
+                    impact = row.reward_value if action_type == 'reward' else -row.punishment_value
+                    payoffs[target_idx - 1] += impact
+
+                    # Update cumulative tracking for actor
+                    prefix = f"player_{actor_idx}"
+                    reward_list = list(getattr(row, f"{prefix}_reward_list"))
+                    punish_list = list(getattr(row, f"{prefix}_punish_list"))
+                    reward_counts = dict(getattr(row, f"{prefix}_reward_counts"))
+                    punish_counts = dict(getattr(row, f"{prefix}_punish_counts"))
+
+                    if action_type == 'reward':
+                        reward_list.append(target_idx)
+                        reward_counts[str(target_idx)] = reward_counts.get(str(target_idx), 0) + 1
+                    else:
+                        punish_list.append(target_idx)
+                        punish_counts[str(target_idx)] = punish_counts.get(str(target_idx), 0) + 1
+
+                    # Save back to row
+                    setattr(row, f"{prefix}_reward_list", reward_list)
+                    setattr(row, f"{prefix}_punish_list", punish_list)
+                    setattr(row, f"{prefix}_reward_counts", reward_counts)
+                    setattr(row, f"{prefix}_punish_counts", punish_counts)
+
+                # Add final round fish stock bonus if it is final round
+                is_final_round = (row.round_number == row.total_rounds)
+                bonus = 0.0
+                if is_final_round:
+                    bonus = row.final_bonus_multiplier * (row.next_fish_stock if row.next_fish_stock is not None else row.max_fish_stock)
+                    for i in range(4):
+                        payoffs[i] += bonus
+
+                # Update row payoffs
+                for i in range(4):
+                    p_num = i + 1
+                    setattr(row, f"player_{p_num}_payoff", payoffs[i])
+                    
+                    # Update cumulative totals
+                    delta = payoffs[i] - (getattr(row, f"player_{p_num}_stage1_payoff") or 0.0)
+                    if is_final_round:
+                        delta -= bonus # Subtract bonus since it was already added to cumulative_payoff in safe_finalize_round
+                    curr_cum_p = getattr(row, f"player_{p_num}_cumulative_payoff")
+                    setattr(row, f"player_{p_num}_cumulative_payoff", curr_cum_p + delta)
+
+                row.round_completed_at = timezone.now()
+                if is_final_round:
+                    r1.completed_at = timezone.now()
+
+                row.save()
+                if is_final_round and r1 != row:
+                    r1.save()
+
+                should_export = is_final_round
+                results = {
+                    "type": "stage2_results",
+                    "round": row.round_number,
+                    "room_type": row.room_type,
+                    "payoffs": {f"player_{i+1}": payoffs[i] for i in range(4)},
+                    "players": {
+                        "player_1": row.player_1_fingerprint,
+                        "player_2": row.player_2_fingerprint,
+                        "player_3": row.player_3_fingerprint,
+                        "player_4": row.player_4_fingerprint,
+                    },
+                    "actions": actions,
+                    "total": row.total_extractions,
+                    "group_return": 0,
+                    "contributions": {
+                        "player_1": row.player_1_extraction,
+                        "player_2": row.player_2_extraction,
+                        "player_3": row.player_3_extraction,
+                        "player_4": row.player_4_extraction,
+                    },
+                    "fish_stock": row.fish_stock,
+                    "next_fish_stock": row.next_fish_stock,
+                    "new_fish_born": row.new_fish_born,
+                }
         except Exception as e:
+            import traceback
             logger.error(f"finalize_stage_2 error: {e}")
+            traceback.print_exc()
             return None
+
+        if should_export:
+            try:
+                export_common_pool_all()
+            except Exception as e:
+                logger.error(f"CPR export failed after final stage 2: {e}")
+
+        return results
 
     @database_sync_to_async
     def assign_player(self, fp):

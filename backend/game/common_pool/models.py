@@ -26,6 +26,16 @@ class CommonPoolGameData(models.Model):
     final_bonus_multiplier = models.FloatField(default=0.4)
 
     # --------------------
+    # Custom Experiment Parameters
+    # --------------------
+    experiment_id = models.UUIDField(null=True, blank=True, db_index=True)
+    condition_id = models.IntegerField(null=True, blank=True)
+    reward_cost = models.FloatField(default=1.0)
+    reward_value = models.FloatField(default=4.0)
+    punishment_cost = models.FloatField(default=1.0)
+    punishment_value = models.FloatField(default=4.0)
+
+    # --------------------
     # Player Fingerprints
     # --------------------
     player_1_fingerprint = models.CharField(max_length=255, null=True, blank=True)

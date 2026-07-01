@@ -66,27 +66,42 @@ function RoundResultsModal({ data, isP1, isOpen, onClose }) {
             <h3>Round Summary</h3>
 
             <div className="proposal-summary">
-              <div className="proposal-item">
-                <h4>Your proposal:</h4>
-                <p>
-                  You kept ${isP1 ? (data.endowment - data.p1_offer) : (data.endowment - data.p2_offer)},
-                  offered ${isP1 ? data.p1_offer : data.p2_offer} →
-                  <span className={`response-status ${isP1 ? data.p2_response : data.p1_response}`}>
-                    {(isP1 ? data.p2_response : data.p1_response) === 'accept' ? 'Accepted' : 'Rejected'} by the other player
-                  </span>
-                </p>
-              </div>
+              {data.game_type === 'one_shot' ? (
+                <div className="proposal-item">
+                  <h4>Proposal:</h4>
+                  <p>
+                    Player 1 kept ${(data.endowment || 100) - data.p1_offer},
+                    offered ${data.p1_offer} →
+                    <span className={`response-status ${data.p2_response}`}>
+                      {data.p2_response === 'accept' ? 'Accepted' : 'Rejected'} by Player 2
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="proposal-item">
+                    <h4>Your proposal:</h4>
+                    <p>
+                      You kept ${(data.endowment || 100) - (isP1 ? data.p1_offer : data.p2_offer)},
+                      offered ${isP1 ? data.p1_offer : data.p2_offer} →
+                      <span className={`response-status ${isP1 ? data.p2_response : data.p1_response}`}>
+                        {(isP1 ? data.p2_response : data.p1_response) === 'accept' ? 'Accepted' : 'Rejected'} by the other player
+                      </span>
+                    </p>
+                  </div>
 
-              <div className="proposal-item">
-                <h4>Their proposal:</h4>
-                <p>
-                  They kept ${isP1 ? (data.endowment - data.p2_offer) : (data.endowment - data.p1_offer)},
-                  offered ${isP1 ? data.p2_offer : data.p1_offer} →
-                  <span className={`response-status ${isP1 ? data.p1_response : data.p2_response}`}>
-                    {(isP1 ? data.p1_response : data.p2_response) === 'accept' ? 'Accepted' : 'Rejected'} by you
-                  </span>
-                </p>
-              </div>
+                  <div className="proposal-item">
+                    <h4>Their proposal:</h4>
+                    <p>
+                      They kept ${(data.endowment || 100) - (isP1 ? data.p2_offer : data.p1_offer)},
+                      offered ${isP1 ? data.p2_offer : data.p1_offer} →
+                      <span className={`response-status ${isP1 ? data.p1_response : data.p2_response}`}>
+                        {(isP1 ? data.p1_response : data.p2_response) === 'accept' ? 'Accepted' : 'Rejected'} by you
+                      </span>
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="payoff-summary">
@@ -124,6 +139,7 @@ export default function GamePage() {
   const gameMode = searchParams.get("mode") || "online"
   const urlMatchId = searchParams.get("match") || null
   const experimentId = searchParams.get("experiment_id") || searchParams.get("experiment")
+  const gameType = searchParams.get("type") || "iterative"
 
   const [playerFingerprint] = useState(() => getPlayerFingerprint())
   const [matchId, setMatchId] = useState(urlMatchId)
@@ -163,8 +179,13 @@ export default function GamePage() {
 
     console.log("📊 Received round results:", latestResults);
     setRoundResultsData(latestResults);
-    setShowRoundResults(true);
-    // Don't change phase here - let the modal handle the timing
+    
+    if (latestResults.game_type === 'one_shot') {
+        setCurrentPhase("gameOver");
+    } else {
+        setShowRoundResults(true);
+    }
+    // Don't change phase here for iterative - let the modal handle the timing
   }, [latestResults]);
 
   // Handle round results modal close
@@ -194,7 +215,7 @@ export default function GamePage() {
       }
 
       if (gameMode === "bot") {
-        const { match_id } = await gameApi.createMatch("bot", playerFingerprint);
+        const { match_id } = await gameApi.createMatch("bot", playerFingerprint, gameType);
         setMatchId(match_id);
         setIsInitializing(false);
         return;
@@ -203,7 +224,7 @@ export default function GamePage() {
       try {
         console.log("🚀 Initializing new match with mode:", gameMode)
         console.log("👤 Using fingerprint:", playerFingerprint)
-        const matchData = await gameApi.createMatch(gameMode, playerFingerprint)
+        const matchData = await gameApi.createMatch(gameMode, playerFingerprint, gameType)
         console.log("✅ Match initialized:", matchData.match_id)
         setMatchId(matchData.match_id)
       } catch (err) {
@@ -218,7 +239,7 @@ export default function GamePage() {
     }
 
     initializeMatch()
-  }, [gameMode, playerFingerprint, urlMatchId])
+  }, [gameMode, playerFingerprint, urlMatchId, gameType])
 
   useEffect(() => {
     if (matchTerminated) {
@@ -287,10 +308,18 @@ export default function GamePage() {
     const myResponseMade = isPlayer1 ? currentRound.player1ResponseMade : currentRound.player2ResponseMade
     const bothOffersMade = currentRound.player1OfferMade && currentRound.player2OfferMade
 
-    // Determine phase and reset response timer when entering responding phase
-    const newPhase = !myOfferMade ? "offering" :
-      bothOffersMade && !myResponseMade ? "responding" :
-        "waiting"
+    let newPhase = "waiting"
+    if (gameState.gameType === 'one_shot') {
+        if (isPlayer1) {
+            newPhase = !currentRound.player1OfferMade ? "offering" : "waiting"
+        } else {
+            newPhase = !currentRound.player1OfferMade ? "waiting" : (!currentRound.player2ResponseMade ? "responding" : "waiting")
+        }
+    } else {
+        newPhase = !myOfferMade ? "offering" :
+          bothOffersMade && !myResponseMade ? "responding" :
+          "waiting"
+    }
 
     // Reset response timer when entering responding phase
     if (currentPhase !== "responding" && newPhase === "responding") {
@@ -601,6 +630,21 @@ export default function GamePage() {
             <h1 className="game-over-title">Game Complete!</h1>
             <p>All {gameState?.maxRounds || DEFAULT_MAX_ROUNDS} rounds finished</p>
           </div>
+
+          {gameState?.gameType === 'one_shot' && roundResultsData && (
+            <div className="score-card" style={{ marginBottom: '20px' }}>
+              <h3>Proposal Summary</h3>
+              <div style={{ padding: '10px' }}>
+                <p>
+                  Player 1 kept ${(roundResultsData.endowment || 100) - roundResultsData.p1_offer},
+                  offered ${roundResultsData.p1_offer} → 
+                  <span className={`response-status ${roundResultsData.p2_response}`}>
+                    {roundResultsData.p2_response === 'accept' ? ' Accepted' : ' Rejected'} by Player 2
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="final-scores">
             <div className="score-card">
@@ -950,29 +994,51 @@ export default function GamePage() {
                   <div className="waiting-animation">
                     <Loader2 className="waiting-spinner" />
                     <p className="waiting-text">
-                      {!gameState?.currentRoundState?.player1OfferMade || !gameState?.currentRoundState?.player2OfferMade
-                        ? "Waiting for all offers to be made…"
-                        : "Waiting for all responses…"}
+                      {gameState?.gameType === 'one_shot'
+                        ? (isPlayer1 ? "Waiting for Player 2 to respond…" : "Waiting for Player 1 to make an offer…")
+                        : (!gameState?.currentRoundState?.player1OfferMade || !gameState?.currentRoundState?.player2OfferMade
+                          ? "Waiting for all offers to be made…"
+                          : "Waiting for all responses…")
+                      }
                     </p>
                   </div>
 
                   {/* Show current round status */}
                   {gameState?.currentRoundState && (
                     <div className="round-status">
-                      <p>
-                        <span>Offers:</span>
-                        <span>
-                          {gameState.currentRoundState.player1OfferMade ? "✓" : "⏳"} Player 1, {" "}
-                          {gameState.currentRoundState.player2OfferMade ? "✓" : "⏳"} Player 2
-                        </span>
-                      </p>
-                      <p>
-                        <span>Responses:</span>
-                        <span>
-                          {gameState.currentRoundState.player1ResponseMade ? "✓" : "⏳"} Player 1, {" "}
-                          {gameState.currentRoundState.player2ResponseMade ? "✓" : "⏳"} Player 2
-                        </span>
-                      </p>
+                      {gameState?.gameType === 'one_shot' ? (
+                        <>
+                          <p>
+                            <span>Offers:</span>
+                            <span>
+                              {gameState.currentRoundState.player1OfferMade ? "✓" : "⏳"} Player 1
+                            </span>
+                          </p>
+                          <p>
+                            <span>Responses:</span>
+                            <span>
+                              {gameState.currentRoundState.player2ResponseMade ? "✓" : "⏳"} Player 2
+                            </span>
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            <span>Offers:</span>
+                            <span>
+                              {gameState.currentRoundState.player1OfferMade ? "✓" : "⏳"} Player 1, {" "}
+                              {gameState.currentRoundState.player2OfferMade ? "✓" : "⏳"} Player 2
+                            </span>
+                          </p>
+                          <p>
+                            <span>Responses:</span>
+                            <span>
+                              {gameState.currentRoundState.player1ResponseMade ? "✓" : "⏳"} Player 1, {" "}
+                              {gameState.currentRoundState.player2ResponseMade ? "✓" : "⏳"} Player 2
+                            </span>
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

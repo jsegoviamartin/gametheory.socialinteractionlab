@@ -467,7 +467,7 @@ export default function PublicGoodsGamePage() {
   return (
     <div className="game-page">
       <div className="game-container">
-        {!isReady && (
+        {!isReady && phase !== "finished" && (
           <div className="connection-blocker">
             <div className="connection-blocker__card">
               <div className="connection-blocker__spinner" />
@@ -713,7 +713,7 @@ export default function PublicGoodsGamePage() {
           TOTAL_ROUNDS={TOTAL_ROUNDS}
         />
       )}
-      {connectionStatus === "error" && (
+      {connectionStatus === "error" && phase !== "finished" && (
         <div className="ws-error-box">
           <p>⚠️ Lost connection to server.</p>
           <button

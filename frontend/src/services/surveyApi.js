@@ -11,7 +11,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
  * @param {Object} params - Survey submission parameters
  * @param {string} params.matchId - The match ID
  * @param {string} params.playerFingerprint - The player's fingerprint
- * @param {string} params.gameType - The game type ('prisoners' or 'ultimatum')
+ * @param {string} params.gameType - The game type ('prisoners', 'public-goods', 'common-pool', or 'ultimatum')
  * @param {Object} params.surveyData - The survey response data
  * @returns {Promise<Object>} API response
  */
@@ -23,6 +23,8 @@ export const submitSurvey = async ({ matchId, playerFingerprint, gameType, surve
       endpoint = `${API_BASE_URL}/prisoners/submit_survey/`;
     } else if (gameType === 'public-goods') {
       endpoint = `${API_BASE_URL}/public-goods/submit-survey/`;
+    } else if (gameType === 'common-pool') {
+      endpoint = `${API_BASE_URL}/common-pool/submit-survey/`;
     } else {
       endpoint = `${API_BASE_URL}/ultimatum/submit-survey/`;
     }
@@ -95,21 +97,15 @@ export const validateSurveyData = (surveyData) => {
 /**
  * Get survey completion status for a match
  * @param {string} matchId - The match ID
- * @param {string} gameType - The game type ('prisoners' or 'ultimatum')
+ * @param {string} gameType - The game type ('prisoners', 'public-goods', 'common-pool', or 'ultimatum')
  * @returns {Promise<Object>} Survey completion status
  */
 export const getSurveyStatus = async (matchId, gameType) => {
-  try {
-    // This would be implemented if we add a status endpoint
-    // For now, we'll return a placeholder
-    return {
-      status: 'unknown',
-      message: 'Survey status check not implemented'
-    };
-  } catch (error) {
-    console.error('Survey status API error:', error);
-    throw error;
-  }
+  // This would be implemented if we add a status endpoint.
+  return {
+    status: 'unknown',
+    message: 'Survey status check not implemented'
+  };
 };
 
 /**
@@ -138,9 +134,11 @@ export const formatSurveyData = (formData) => {
   return formatted;
 };
 
-export default {
+const surveyApi = {
   submitSurvey,
   validateSurveyData,
   getSurveyStatus,
   formatSurveyData
 };
+
+export default surveyApi;

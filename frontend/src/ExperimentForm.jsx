@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { ArrowLeft, Save, Zap, Shield, Coins, Users, ShieldAlert, Target, TrendingUp, Info, Clipboard, HelpCircle } from "lucide-react"
+import { ArrowLeft, Save, Zap, Shield, Coins, Users, ShieldAlert, Target, TrendingUp, Info, Clipboard, HelpCircle, Waves } from "lucide-react"
 import { getErrorMessage } from "./utils/errorUtils"
 import "./ExperimentForm.css"
 
@@ -64,7 +64,7 @@ function ExperimentForm() {
         setExpData({ name: data.name, game_type: data.game_type })
         
         if (isEditing) {
-          const conditions = data.prisoner_conditions?.[0] || data.ultimatum_conditions?.[0] || data.public_goods_conditions?.[0]
+          const conditions = data.prisoner_conditions?.[0] || data.ultimatum_conditions?.[0] || data.public_goods_conditions?.[0] || data.common_pool_conditions?.[0]
           if (conditions) {
             setConditionData(prev => ({
               ...prev,
@@ -73,14 +73,24 @@ function ExperimentForm() {
               prisoner_rounds: conditions.rounds,
               ultimatum_rounds: conditions.rounds,
               pg_rounds: conditions.rounds,
-              pg_endowment: conditions.endowment
+              pg_endowment: conditions.endowment,
+              cpr_initial_fish_stock: conditions.initial_fish_stock || 100,
+              cpr_max_fish_stock: conditions.max_fish_stock || 100,
+              cpr_max_extraction: conditions.max_extraction || 10,
+              cpr_final_bonus_multiplier: conditions.final_bonus_multiplier || 0.4,
+              cpr_rounds: conditions.rounds,
+              cpr_reward_cost: conditions.reward_cost || 1.0,
+              cpr_reward_value: conditions.reward_value || 4.0,
+              cpr_punishment_cost: conditions.punishment_cost || 1.0,
+              cpr_punishment_value: conditions.punishment_value || 4.0,
             }))
           }
         } else {
           // Append mode: set name to next number
           const count = (data.prisoner_conditions?.length || 0) + 
                        (data.ultimatum_conditions?.length || 0) + 
-                       (data.public_goods_conditions?.length || 0)
+                       (data.public_goods_conditions?.length || 0) +
+                       (data.common_pool_conditions?.length || 0)
           setConditionData(prev => ({ ...prev, name: `Condition ${count + 1}` }))
         }
       }
@@ -106,7 +116,16 @@ function ExperimentForm() {
     reward_cost: 4,
     reward_value: 12,
     punishment_cost: 4,
-    punishment_value: 12
+    punishment_value: 12,
+    cpr_initial_fish_stock: 100,
+    cpr_max_fish_stock: 100,
+    cpr_max_extraction: 10,
+    cpr_final_bonus_multiplier: 0.4,
+    cpr_rounds: 20,
+    cpr_reward_cost: 1.0,
+    cpr_reward_value: 4.0,
+    cpr_punishment_cost: 1.0,
+    cpr_punishment_value: 4.0
   })
 
   const applyPreset = (game) => {
@@ -194,7 +213,8 @@ function ExperimentForm() {
           const existingNames = [
             ...(projectData.prisoner_conditions || []),
             ...(projectData.ultimatum_conditions || []),
-            ...(projectData.public_goods_conditions || [])
+            ...(projectData.public_goods_conditions || []),
+            ...(projectData.common_pool_conditions || [])
           ].map(c => (c.condition_name || "").toLowerCase());
           
           if (existingNames.includes(conditionData.name.toLowerCase()) && !isEditMode) {
@@ -240,7 +260,7 @@ function ExperimentForm() {
           endowment: conditionData.endowment, 
           rounds: conditionData.ultimatum_rounds 
         }
-      } else {
+      } else if (expData.game_type === "public_goods") {
         params = { ...params, 
           room_type: conditionData.room_type, 
           endowment: conditionData.pg_endowment, 
@@ -250,6 +270,19 @@ function ExperimentForm() {
           reward_value: conditionData.reward_value,
           punishment_cost: conditionData.punishment_cost,
           punishment_value: conditionData.punishment_value
+        }
+      } else {
+        params = { ...params, 
+          room_type: conditionData.room_type, 
+          initial_fish_stock: conditionData.cpr_initial_fish_stock,
+          max_fish_stock: conditionData.cpr_max_fish_stock,
+          max_extraction: conditionData.cpr_max_extraction,
+          final_bonus_multiplier: conditionData.cpr_final_bonus_multiplier,
+          rounds: conditionData.cpr_rounds,
+          reward_cost: conditionData.cpr_reward_cost,
+          reward_value: conditionData.cpr_reward_value,
+          punishment_cost: conditionData.cpr_punishment_cost,
+          punishment_value: conditionData.cpr_punishment_value
         }
       }
 
@@ -329,6 +362,9 @@ function ExperimentForm() {
                 </div>
                 <div className={`game-option ${expData.game_type === 'public_goods' ? 'selected' : ''}`} onClick={() => setExpData({...expData, game_type: 'public_goods'})}>
                   <Users size={24} /> <span>Public Goods</span>
+                </div>
+                <div className={`game-option ${expData.game_type === 'common_pool' ? 'selected' : ''}`} onClick={() => setExpData({...expData, game_type: 'common_pool'})}>
+                  <Waves size={24} /> <span>Common Pool</span>
                 </div>
               </div>
             </div>
@@ -476,6 +512,63 @@ function ExperimentForm() {
                         <>
                           <div className="param-input"><label>Punish Cost <Tooltip text="Amount subtracted from sender's payoff to send a punishment." /></label><input type="number" value={conditionData.punishment_cost} onChange={e => updateCondition({punishment_cost: parseInt(e.target.value)})} /></div>
                           <div className="param-input"><label>Punish Value <Tooltip text="Amount subtracted from recipient's payoff from a punishment." /></label><input type="number" value={conditionData.punishment_value} onChange={e => updateCondition({punishment_value: parseInt(e.target.value)})} /></div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {expData.game_type === 'common_pool' && (
+              <div className="pro-params">
+                <div className="param-split">
+                  <div className="input-field">
+                    <label>Type <Tooltip text="Defines interaction rules: 'Standard' is harvest only. 'Punishment' allows reducing others' payoffs. 'Reward' allows increasing them. 'Mixed' allows both." /></label>
+                    <select value={conditionData.room_type} onChange={e => updateCondition({ room_type: e.target.value })}>
+                      <option value="basic">Standard CPR</option>
+                      <option value="punishment">Punishment</option>
+                      <option value="reward">Reward</option>
+                      <option value="mixed">Mixed</option>
+                    </select>
+                  </div>
+                  <div className="input-field">
+                    <label>Fish Stock <Tooltip text="The initial quantity and maximum capacity of fish in the lake." /></label>
+                    <input type="number" value={conditionData.cpr_initial_fish_stock} onChange={e => updateCondition({ cpr_initial_fish_stock: parseInt(e.target.value), cpr_max_fish_stock: parseInt(e.target.value) })} />
+                  </div>
+                </div>
+                <div className="param-split">
+                  <div className="input-field">
+                    <label>Max Extraction <Tooltip text="The maximum amount of fish any player can request to harvest in a single round." /></label>
+                    <input type="number" value={conditionData.cpr_max_extraction} onChange={e => updateCondition({ cpr_max_extraction: parseInt(e.target.value) })} />
+                  </div>
+                  <div className="input-field">
+                    <label>Bonus Multiplier <Tooltip text="The multiplier applied to remaining fish stock at the end of the game to distribute as a bonus." /></label>
+                    <input type="number" step="0.1" value={conditionData.cpr_final_bonus_multiplier} onChange={e => updateCondition({ cpr_final_bonus_multiplier: parseFloat(e.target.value) })} />
+                  </div>
+                </div>
+                <div className="param-split">
+                  <div className="input-field">
+                    <label>Rounds <Tooltip text="Total number of extraction-replenishment rounds." /></label>
+                    <input type="number" value={conditionData.cpr_rounds} onChange={e => updateCondition({ cpr_rounds: parseInt(e.target.value) })} />
+                  </div>
+                  <div className="input-field-empty" style={{flex: 1}}></div>
+                </div>
+
+                {conditionData.room_type !== 'basic' && (
+                  <div className="interaction-params">
+                    <h4 className="sub-title">Stage 2 Rules</h4>
+                    <div className="matrix-grid">
+                      {(conditionData.room_type === 'reward' || conditionData.room_type === 'mixed') && (
+                        <>
+                          <div className="param-input"><label>Reward Cost <Tooltip text="Amount subtracted from sender's payoff to send a reward." /></label><input type="number" step="0.1" value={conditionData.cpr_reward_cost} onChange={e => updateCondition({cpr_reward_cost: parseFloat(e.target.value)})} /></div>
+                          <div className="param-input"><label>Reward Value <Tooltip text="Amount added to recipient's payoff from a reward." /></label><input type="number" step="0.1" value={conditionData.cpr_reward_value} onChange={e => updateCondition({cpr_reward_value: parseFloat(e.target.value)})} /></div>
+                        </>
+                      )}
+                      {(conditionData.room_type === 'punishment' || conditionData.room_type === 'mixed') && (
+                        <>
+                          <div className="param-input"><label>Punish Cost <Tooltip text="Amount subtracted from sender's payoff to send a punishment." /></label><input type="number" step="0.1" value={conditionData.cpr_punishment_cost} onChange={e => updateCondition({cpr_punishment_cost: parseFloat(e.target.value)})} /></div>
+                          <div className="param-input"><label>Punish Value <Tooltip text="Amount subtracted from recipient's payoff from a punishment." /></label><input type="number" step="0.1" value={conditionData.cpr_punishment_value} onChange={e => updateCondition({cpr_punishment_value: parseFloat(e.target.value)})} /></div>
                         </>
                       )}
                     </div>

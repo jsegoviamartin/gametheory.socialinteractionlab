@@ -97,6 +97,7 @@
 .game-mode-tag.prisoner { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 .game-mode-tag.ultimatum { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
 .game-mode-tag.public_goods { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; }
+.game-mode-tag.common_pool { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 
 .room-status { font-size: 0.65rem; color: #10b981; text-transform: uppercase; font-weight: 800; display: flex; align-items: center; gap: 0.4rem; }
 .room-status::before { content: ''; width: 6px; height: 6px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }

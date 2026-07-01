@@ -277,9 +277,6 @@ export default function CommonPoolResourceGamePage() {
   const matchId = params.get("match") || params.get("match_id")
   const mode = params.get("mode") || "online"
   const experimentId = params.get("experiment_id") || params.get("experiment")
-  const fishCount = FISH_COUNT
-  const maxFishStock = MAX_FISH_STOCK
-  const layoutCount = FISH_LAYOUT_COUNT
   const playerFingerprint = getPlayerFingerprint()
   const {
     players: wsPlayers,
@@ -294,7 +291,10 @@ export default function CommonPoolResourceGamePage() {
   } = useWebSocketCPR(matchId, playerFingerprint)
 
   // Use dynamic parameters from the laboratory
-  const MAX_COINS = 10;
+  const maxFishStock = gameParams?.maxFishStock || 100
+  const fishCount = gameParams?.initialFishStock || 100
+  const layoutCount = Math.max(100, fishCount, maxFishStock)
+  const MAX_EXTRACTION = gameParams?.maxExtraction || 10;
   const TOTAL_ROUNDS = gameParams?.totalRounds || 20;
   const ROUND_TIME = 30; // Standard phase time
   // ---------------------------------
@@ -664,7 +664,7 @@ export default function CommonPoolResourceGamePage() {
   return (
     <div className="cpr-game-page">
       <div className="cpr-game-container">
-        {!isReady && (
+        {!isReady && phase !== "finished" && (
           <div className="cpr-connection-blocker">
             <div className="cpr-connection-blocker__card">
               <div className="cpr-connection-blocker__spinner" />
@@ -756,7 +756,7 @@ export default function CommonPoolResourceGamePage() {
                     targetStock={fishStock}
                     pendingExtraction={currentContribution}
                     phase={phase}
-                    maxExtraction={MAX_COINS}
+                    maxExtraction={MAX_EXTRACTION}
                     fishCount={fishCount}
                     maxFishStock={maxFishStock}
                     layoutCount={layoutCount}
@@ -814,7 +814,7 @@ export default function CommonPoolResourceGamePage() {
                     <div className="cpr-coin-stack cpr-contribution-stack">
                       <div
                         className="cpr-coin-stack-visual"
-                        style={{ width: `${(currentContribution / MAX_COINS) * 300 + 30}px` }}
+                        style={{ width: `${(currentContribution / MAX_EXTRACTION) * 300 + 30}px` }}
                       >
                         <div className="cpr-coin-amount">{currentContribution}</div>
                       </div>
@@ -824,7 +824,7 @@ export default function CommonPoolResourceGamePage() {
                     <input
                       type="range"
                       min="0"
-                      max={MAX_COINS}
+                      max={MAX_EXTRACTION}
                       value={currentContribution}
                       onChange={handleSliderChange}
                       className="cpr-horizontal-slider"
@@ -917,7 +917,7 @@ export default function CommonPoolResourceGamePage() {
           TOTAL_ROUNDS={TOTAL_ROUNDS}
         />
       )}
-      {connectionStatus === "error" && (
+      {connectionStatus === "error" && phase !== "finished" && (
         <div className="cpr-ws-error-box">
           <p>⚠️ Lost connection to server.</p>
           <button

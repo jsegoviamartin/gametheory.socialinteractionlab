@@ -3,12 +3,13 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.http import HttpResponse
 from game.exports import get_user_data_csv, get_combined_user_data_csv
-from .models import CustomExperiment, CustomPrisoner, CustomUltimatum, CustomPublicGoods
+from .models import CustomExperiment, CustomPrisoner, CustomUltimatum, CustomPublicGoods, CustomCommonPool
 from .serializers import (
     CustomExperimentSerializer,
     CustomPrisonerSerializer,
     CustomUltimatumSerializer,
-    CustomPublicGoodsSerializer
+    CustomPublicGoodsSerializer,
+    CustomCommonPoolSerializer
 )
 
 class ExperimentViewSet(viewsets.ModelViewSet):
@@ -58,24 +59,26 @@ class ExperimentViewSet(viewsets.ModelViewSet):
             serializer = CustomUltimatumSerializer(data=request.data)
         elif game_type == 'public_goods':
             serializer = CustomPublicGoodsSerializer(data=request.data)
+        elif game_type == 'common_pool':
+            serializer = CustomCommonPoolSerializer(data=request.data)
         else:
             return Response({"error": "Unknown game type"}, status=status.HTTP_400_BAD_REQUEST)
 
         if serializer.is_valid():
             # Data cleaning for Public Goods based on room_type
-            if game_type == 'public_goods':
+            if game_type == 'public_goods' or game_type == 'common_pool':
                 room_type = request.data.get('room_type', 'basic')
                 if room_type == 'basic':
-                    serializer.validated_data['reward_cost'] = 0
-                    serializer.validated_data['reward_value'] = 0
-                    serializer.validated_data['punishment_cost'] = 0
-                    serializer.validated_data['punishment_value'] = 0
+                    serializer.validated_data['reward_cost'] = 0.0
+                    serializer.validated_data['reward_value'] = 0.0
+                    serializer.validated_data['punishment_cost'] = 0.0
+                    serializer.validated_data['punishment_value'] = 0.0
                 elif room_type == 'punishment':
-                    serializer.validated_data['reward_cost'] = 0
-                    serializer.validated_data['reward_value'] = 0
+                    serializer.validated_data['reward_cost'] = 0.0
+                    serializer.validated_data['reward_value'] = 0.0
                 elif room_type == 'reward':
-                    serializer.validated_data['punishment_cost'] = 0
-                    serializer.validated_data['punishment_value'] = 0
+                    serializer.validated_data['punishment_cost'] = 0.0
+                    serializer.validated_data['punishment_value'] = 0.0
 
             serializer.save(
                 experiment=experiment, 
@@ -100,6 +103,8 @@ class ExperimentViewSet(viewsets.ModelViewSet):
             deleted, _ = CustomUltimatum.objects.filter(experiment=experiment, id=condition_id).delete()
         elif experiment.game_type == 'public_goods':
             deleted, _ = CustomPublicGoods.objects.filter(experiment=experiment, id=condition_id).delete()
+        elif experiment.game_type == 'common_pool':
+            deleted, _ = CustomCommonPool.objects.filter(experiment=experiment, id=condition_id).delete()
         else:
             return Response({"error": "Unknown game type"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -110,8 +115,8 @@ class ExperimentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def download_data(self, request):
         game_type = request.query_params.get('game_type')
-        if game_type not in ['prisoner', 'ultimatum', 'public_goods', 'all']:
-            return Response({"error": "Invalid game_type. Use 'prisoner', 'ultimatum', 'public_goods', or 'all'."}, status=status.HTTP_400_BAD_REQUEST)
+        if game_type not in ['prisoner', 'ultimatum', 'public_goods', 'common_pool', 'all']:
+            return Response({"error": "Invalid game_type. Use 'prisoner', 'ultimatum', 'public_goods', 'common_pool', or 'all'."}, status=status.HTTP_400_BAD_REQUEST)
         
         if game_type == 'all':
             csv_data = get_combined_user_data_csv(request.user)

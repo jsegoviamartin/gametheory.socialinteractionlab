@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Loader2, Wifi, WifiOff, Users } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { gameApi, getPlayerFingerprint } from "../services/gameApi"
 import "./MatchmakingPage.css"
 
 export default function MatchmakingPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const gameType = searchParams.get("type") || "iterative"
   
   const [playerFingerprint] = useState(() => getPlayerFingerprint())
   
@@ -46,7 +48,7 @@ export default function MatchmakingPage() {
         setStatus("found")
         setTimeout(() => {
           if (mountedRef.current) {
-            navigate(`/ultimatum/game?mode=online&match=${matchId}`)
+            navigate(`/ultimatum/game?mode=online&match=${matchId}&type=${gameType}`)
           }
         }, 1000)
         return
@@ -77,7 +79,7 @@ export default function MatchmakingPage() {
         checkMatchStatus(matchId)
       }, delay)
     }
-  }, [navigate])
+  }, [navigate, gameType])
 
   useEffect(() => {
     const findMatch = async () => {
@@ -87,7 +89,7 @@ export default function MatchmakingPage() {
         console.log("🔍 Searching for online match with fingerprint:", playerFingerprint)
         setStatus("searching")
 
-        const matchData = await gameApi.createMatch("online", playerFingerprint)
+        const matchData = await gameApi.createMatch("online", playerFingerprint, gameType)
 
         if (!mountedRef.current) return
 
@@ -99,7 +101,7 @@ export default function MatchmakingPage() {
           setStatus("found")
           setTimeout(() => {
             if (mountedRef.current) {
-              navigate(`/ultimatum/game?mode=online&match=${matchData.match_id}`)
+              navigate(`/ultimatum/game?mode=online&match=${matchData.match_id}&type=${gameType}`)
             }
           }, 1500)
         } else if (matchData.status === "created_new_match" || matchData.status === "already_joined") {
@@ -122,7 +124,8 @@ export default function MatchmakingPage() {
     if (hasFetched.current) return
     hasFetched.current = true
     findMatch()
-  }, [checkMatchStatus, navigate, playerFingerprint])
+  }, [checkMatchStatus, navigate, playerFingerprint, gameType])
+
   const handleCancel = () => {
     console.log("❌ User cancelled matchmaking")
 

@@ -7,6 +7,8 @@ from django.db.models import Q
 
 from .models import CommonPoolGameData
 from public_goods.utils import get_client_ip
+from game.exports import export_common_pool_all
+from custom_rooms.models import CustomExperiment, CustomCommonPool
 
 @csrf_exempt
 def create_match_common_pool(request):
@@ -47,7 +49,8 @@ def create_match_common_pool(request):
                     round_number=1,
                     game_mode="online",
                     room_type=room_type,
-                    completed_at__isnull=True
+                    completed_at__isnull=True,
+                    experiment_id__isnull=True
                 )
                 .filter(
                     Q(player_1_fingerprint__isnull=True) |
@@ -203,6 +206,11 @@ def submit_survey(request):
         except (ValueError, TypeError) as e:
             return JsonResponse({'status': 'error', 'message': f'Invalid data format: {str(e)}'}, status=400)
 
+        try:
+            export_common_pool_all()
+        except Exception as e:
+            traceback.print_exc()
+
         return JsonResponse({
             'status': 'success',
             'message': 'Survey submitted successfully',
@@ -234,6 +242,118 @@ def match_stats_common_pool(request, match_id):
                 "player_3": match.player_3_fingerprint,
                 "player_4": match.player_4_fingerprint,
             },
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+@csrf_exempt
+def matchmake_custom_common_pool(request):
+    """
+    Matchmaking for custom CPR experiments.
+    Finds open match for this experiment_id or creates one with a random condition.
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+        exp_id = data.get("experiment_id")
+        player_fp = data.get("player_fingerprint")
+        requested_cond_id = data.get("condition_id")
+        ip_address = get_client_ip(request)
+
+        if not exp_id or not player_fp:
+            return JsonResponse({"status": "error", "message": "experiment_id and player_fingerprint required"}, status=400)
+
+        # 1. Search for available match in THIS experiment
+        match = (
+            CommonPoolGameData.objects
+            .filter(
+                round_number=1,
+                experiment_id=exp_id,
+                completed_at__isnull=True
+            )
+            .filter(
+                Q(player_1_fingerprint__isnull=True) |
+                Q(player_2_fingerprint__isnull=True) |
+                Q(player_3_fingerprint__isnull=True) |
+                Q(player_4_fingerprint__isnull=True)
+            )
+            .order_by("created_at")
+            .first()
+        )
+
+        # Already joined?
+        if match and player_fp in [match.player_1_fingerprint, match.player_2_fingerprint, match.player_3_fingerprint, match.player_4_fingerprint]:
+            return JsonResponse({
+                "status": "already_joined",
+                "match_id": match.match_id,
+                "players_count": match.players_count(),
+                "is_ready": match.is_ready,
+                "room": match.room_type,
+            })
+
+        # Join existing
+        if match:
+            for i in range(1, 5):
+                if getattr(match, f"player_{i}_fingerprint") is None:
+                    setattr(match, f"player_{i}_fingerprint", player_fp)
+                    setattr(match, f"player_{i}_ip", ip_address)
+                    break
+            match.save()
+            return JsonResponse({
+                "status": "joined_existing_match",
+                "match_id": match.match_id,
+                "players_count": match.players_count(),
+                "is_ready": match.is_ready,
+                "room": match.room_type,
+            })
+
+        # 2. Create New Match with a random/specific condition from the experiment
+        experiment = CustomExperiment.objects.get(id=exp_id)
+        conditions = list(CustomCommonPool.objects.filter(experiment=experiment))
+        
+        if not conditions:
+            return JsonResponse({"status": "error", "message": "No conditions found for this experiment"}, status=400)
+            
+        if requested_cond_id:
+            try:
+                chosen_cond = CustomCommonPool.objects.get(id=requested_cond_id, experiment=experiment)
+            except CustomCommonPool.DoesNotExist:
+                chosen_cond = random.choice(conditions)
+        else:
+            chosen_cond = random.choice(conditions)
+
+        match = CommonPoolGameData.objects.create(
+            match_id=CommonPoolGameData.generate_match_id(),
+            round_number=1,
+            game_mode="online",
+            experiment_id=exp_id,
+            condition_id=chosen_cond.id,
+            room_type=chosen_cond.room_type,
+            total_rounds=chosen_cond.rounds,
+            initial_fish_stock=chosen_cond.initial_fish_stock,
+            max_fish_stock=chosen_cond.max_fish_stock,
+            max_extraction=chosen_cond.max_extraction,
+            final_bonus_multiplier=chosen_cond.final_bonus_multiplier,
+            reward_cost=float(chosen_cond.reward_cost),
+            reward_value=float(chosen_cond.reward_value),
+            punishment_cost=float(chosen_cond.punishment_cost),
+            punishment_value=float(chosen_cond.punishment_value),
+            player_1_fingerprint=player_fp,
+            player_1_ip=ip_address,
+            fish_stock=chosen_cond.initial_fish_stock
+        )
+
+        return JsonResponse({
+            "status": "created_new_match",
+            "match_id": match.match_id,
+            "players_count": 1,
+            "is_ready": False,
+            "room": match.room_type,
         })
 
     except Exception as e:

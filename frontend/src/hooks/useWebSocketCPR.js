@@ -170,7 +170,7 @@ export const useWebSocketCPR = (matchId, playerFingerprint) => {
       connectionRef.current = "disconnected";
       setSocket(null);
 
-      if (event.code === 4000) {
+      if (event.code === 4000 || event.code === 1000) {
         console.log("🟢 Normal CPR client disconnect");
         setConnectionStatus("disconnected");
       } else {

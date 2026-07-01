@@ -34,14 +34,15 @@ export const gameApi = {
   // -------------------------------
   // Ultimatum Endpoints
   // -------------------------------
-  async createMatch(gameMode, playerFingerprint) {
-    console.log("🎮 [Ultimatum] Creating match:", { gameMode, playerFingerprint })
+  async createMatch(gameMode, playerFingerprint, gameType = 'iterative') {
+    console.log("🎮 [Ultimatum] Creating match:", { gameMode, playerFingerprint, gameType })
 
     const response = await fetch(`${API_BASE_URL}/create-match-ultimatum/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         game_mode: gameMode,
+        game_type: gameType,
         player_fingerprint: playerFingerprint,
       }),
     })
@@ -185,6 +186,26 @@ export const gameApi = {
 
     const data = await res.json()
     console.log("✅ [Common Pool] Match created/joined:", data)
+    return data
+  },
+
+  async matchmakeCustomCommonPool(experimentId, playerFingerprint, conditionId = null) {
+    console.log("🎮 [Common Pool] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId })
+
+    const res = await fetch(`${CPR_API_BASE_URL}/matchmake-custom/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        experiment_id: experimentId,
+        player_fingerprint: playerFingerprint,
+        condition_id: conditionId,
+      }),
+    })
+
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`)
+
+    const data = await res.json()
+    console.log("✅ [Common Pool] Custom Match created/joined:", data)
     return data
   },
 

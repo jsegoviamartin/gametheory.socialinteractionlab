@@ -8,6 +8,11 @@ class UltimatumGameRound(models.Model):
         ('bot', 'Bot'),
     ]
     
+    GAME_TYPES = [
+        ('iterative', 'Iterative'),
+        ('one_shot', 'One Shot'),
+    ]
+    
     RESPONSE_CHOICES = [
         ('accept', 'Accept'),
         ('reject', 'Reject'),
@@ -38,8 +43,9 @@ class UltimatumGameRound(models.Model):
     player_1_ip_address = models.GenericIPAddressField(null=True, blank=True)
     player_2_ip_address = models.GenericIPAddressField(null=True, blank=True)
 
-    # Game mode
+    # Game mode and type
     game_mode = models.CharField(max_length=10, choices=GAME_MODES, default='online')
+    game_type = models.CharField(max_length=20, choices=GAME_TYPES, default='iterative')
     
     # NEW FIELDS: What each player keeps vs offers
     player_1_coins_to_keep = models.IntegerField(null=True, blank=True)
@@ -119,6 +125,12 @@ class UltimatumGameRound(models.Model):
 
     def is_round_complete(self):
         """Check if all actions for this round are complete"""
+        if getattr(self, 'game_type', 'iterative') == 'one_shot':
+            return (
+                self.player_1_coins_to_keep is not None and 
+                self.player_1_coins_to_offer is not None and
+                self.player_2_response_to_p1_offer is not None
+            )
         return (
             self.player_1_coins_to_keep is not None and 
             self.player_1_coins_to_offer is not None and
@@ -136,14 +148,24 @@ class UltimatumGameRound(models.Model):
     @classmethod
     def get_completed_rounds_count(cls, match_uuid):
         """Get count of completed rounds for a match"""
+        from django.db.models import Q
         return cls.objects.filter(
-            game_match_uuid=match_uuid,
-            player_1_coins_to_keep__isnull=False,
-            player_1_coins_to_offer__isnull=False,
-            player_2_coins_to_keep__isnull=False,
-            player_2_coins_to_offer__isnull=False,
-            player_1_response_to_p2_offer__isnull=False,
-            player_2_response_to_p1_offer__isnull=False
+            Q(
+                game_match_uuid=match_uuid,
+                game_type='iterative',
+                player_1_coins_to_keep__isnull=False,
+                player_1_coins_to_offer__isnull=False,
+                player_2_coins_to_keep__isnull=False,
+                player_2_coins_to_offer__isnull=False,
+                player_1_response_to_p2_offer__isnull=False,
+                player_2_response_to_p1_offer__isnull=False
+            ) | Q(
+                game_match_uuid=match_uuid,
+                game_type='one_shot',
+                player_1_coins_to_keep__isnull=False,
+                player_1_coins_to_offer__isnull=False,
+                player_2_response_to_p1_offer__isnull=False
+            )
         ).count()
     
     @classmethod

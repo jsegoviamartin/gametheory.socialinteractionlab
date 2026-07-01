@@ -5,11 +5,11 @@ import "./HomePage.css"
 export default function HomePage() {
   const navigate = useNavigate()
 
-  const handleStartGame = (mode) => {
+  const handleStartGame = (mode, type = 'iterative') => {
     if (mode === "online") {
-      navigate("/ultimatum/matchmaking")
+      navigate(`/ultimatum/matchmaking?type=${type}`)
     } else {
-      navigate(`/ultimatum/game?mode=${mode}`)
+      navigate(`/ultimatum/game?mode=${mode}&type=${type}`)
     }
   }
 
@@ -106,9 +106,14 @@ export default function HomePage() {
             </div>
             <h3 className="game-mode-title">Play Online</h3>
             <p className="game-mode-description">Challenge a real player in our matchmaking system</p>
-            <button onClick={() => handleStartGame("online")} className="game-mode-button online-button">
-              Find Opponent
-            </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+              <button onClick={() => handleStartGame("online", "iterative")} className="game-mode-button online-button" style={{ flex: 1 }}>
+                Iterative
+              </button>
+              <button onClick={() => handleStartGame("online", "one_shot")} className="game-mode-button online-button" style={{ flex: 1 }}>
+                One-Shot
+              </button>
+            </div>
           </div>
 
           <div className="game-mode-card">
@@ -117,9 +122,14 @@ export default function HomePage() {
             </div>
             <h3 className="game-mode-title">Play with Bot</h3>
             <p className="game-mode-description">Practice against our AI opponent</p>
-            <button onClick={() => handleStartGame("bot")} className="game-mode-button bot-button">
-              Start Game
-            </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+              <button onClick={() => handleStartGame("bot", "iterative")} className="game-mode-button bot-button" style={{ flex: 1 }}>
+                Iterative
+              </button>
+              <button onClick={() => handleStartGame("bot", "one_shot")} className="game-mode-button bot-button" style={{ flex: 1 }}>
+                One-Shot
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -46,6 +46,11 @@ function CustomExperimentHome() {
         navigate(`/public-goods/matchmaking?room=basic&mode=online&experiment_id=${experiment.id}&condition_id=${conditionId || ''}`)
         return;
       }
+      if (experiment.game_type === 'common_pool') {
+        // Navigate to specialized matchmaking page for CPR
+        navigate(`/common-pool/matchmaking?room=basic&mode=online&experiment_id=${experiment.id}&condition_id=${conditionId || ''}`)
+        return;
+      }
 
       let data = null;
       if (experiment.game_type === 'ultimatum') {
@@ -86,7 +91,8 @@ function CustomExperimentHome() {
   const conditions = [
     ...(experiment.prisoner_conditions || []),
     ...(experiment.ultimatum_conditions || []),
-    ...(experiment.public_goods_conditions || [])
+    ...(experiment.public_goods_conditions || []),
+    ...(experiment.common_pool_conditions || [])
   ]
 
   const currentCondition = conditions[activeTab] || {}
@@ -198,6 +204,65 @@ function CustomExperimentHome() {
          <div className="rule-item"><span>Your Balance:</span><strong>{currentCondition.endowment || 20} Coins</strong></div>
          <div className="rule-item"><span>Pool Multiplier:</span><strong>×{currentCondition.multiplier || 1.6}</strong></div>
          <div className="rule-item"><span>Total Rounds:</span><strong>{currentCondition.rounds || 10}</strong></div>
+      </div>
+    </div>
+  )
+
+  const renderCommonPoolContent = () => (
+    <div className="how-to-play-card">
+      <div className="how-to-play-header">
+        <Coins className="how-to-play-icon" />
+        <h2 className="how-to-play-title">How to Play</h2>
+      </div>
+
+      <div className="how-to-play-steps">
+        <div className="step">
+          <div className="step-number"><span>1</span></div>
+          <h3 className="step-title">Fish Stock</h3>
+          <p className="step-description">The lake starts with <b>{currentCondition.initial_fish_stock || 100} fish</b>.</p>
+        </div>
+        <div className="step">
+          <div className="step-number"><span>2</span></div>
+          <h3 className="step-title">Choose Extraction</h3>
+          <p className="step-description">Decide how many fish (0–{currentCondition.max_extraction || 10}) to catch from the lake.</p>
+        </div>
+        <div className="step">
+          <div className="step-number"><span>3</span></div>
+          <h3 className="step-title">Lake Replenishment</h3>
+          <p className="step-description">Remaining fish spawn new offspring, replenishing the lake up to <b>{currentCondition.max_fish_stock || 100} fish</b>.</p>
+        </div>
+      </div>
+
+      <div className="how-to-play-instructions">
+         <div className="instruction-section">
+            <div className="instruction-details">
+              <h4>Stage 1 — Harvest</h4>
+              <ul>
+                <li>Lake holds up to <strong>{currentCondition.max_fish_stock || 100} fish</strong>.</li>
+                <li>Each player requests to catch <strong>0–{currentCondition.max_extraction || 10} fish</strong>.</li>
+                <li>If the total requested exceeds the stock, catches are scaled down proportionally.</li>
+                <li>Remaining fish reproduce: <strong>new born = 0.8 × remaining × (1 − remaining / {currentCondition.max_fish_stock || 100})</strong>.</li>
+                <li>Payoff per round: <strong>1 point per fish caught</strong> (+ final stock bonus at the end).</li>
+              </ul>
+            </div>
+
+            {currentCondition.room_type !== "basic" && (
+              <div className="instruction-details">
+                <h4>Stage 2 — Room Rules</h4>
+                <ul>{renderStage2Rules(currentCondition)}</ul>
+              </div>
+            )}
+
+            <div className="instruction-details">
+              <h4>Information</h4>
+              <ul>{renderInformationRules(currentCondition)}</ul>
+            </div>
+         </div>
+      </div>
+       <div className="rule-box">
+         <div className="rule-item"><span>Max Catch/Rd:</span><strong>{currentCondition.max_extraction || 10} Fish</strong></div>
+         <div className="rule-item"><span>End Game Bonus:</span><strong>{currentCondition.final_bonus_multiplier || 0.4} × final stock</strong></div>
+         <div className="rule-item"><span>Total Rounds:</span><strong>{currentCondition.rounds || 20}</strong></div>
       </div>
     </div>
   )
@@ -352,6 +417,7 @@ function CustomExperimentHome() {
           {experiment.game_type === 'prisoner' && renderPrisonerContent()}
           {experiment.game_type === 'ultimatum' && renderUltimatumContent()}
           {experiment.game_type === 'public_goods' && renderPublicGoodsContent()}
+          {experiment.game_type === 'common_pool' && renderCommonPoolContent()}
         </div>
 
         <div className="hub-actions">

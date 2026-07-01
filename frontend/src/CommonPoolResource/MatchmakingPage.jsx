@@ -122,8 +122,7 @@ export default function CommonPoolResourceMatchmakingPage() {
       
       let matchData;
       if (experimentId) {
-        // Fallback to standard lobby creation for CPR as custom/experiment is ignored for now
-        matchData = await gameApi.createMatchCommonPool(room, mode, playerFingerprint)
+        matchData = await gameApi.matchmakeCustomCommonPool(experimentId, playerFingerprint, conditionId)
       } else {
         matchData = await gameApi.createMatchCommonPool(room, mode, playerFingerprint)
       }

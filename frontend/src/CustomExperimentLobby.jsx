@@ -89,7 +89,7 @@ function CustomExperimentLobby() {
             <div className="room-main">
               <div className="room-badge-group">
                 <span className={`game-mode-tag ${exp.game_type}`}>
-                  {exp.game_type === 'prisoner' ? '2x2 Game' : exp.game_type === 'ultimatum' ? 'Ultimatum' : 'Public Goods'}
+                  {exp.game_type === 'prisoner' ? '2x2 Game' : exp.game_type === 'ultimatum' ? 'Ultimatum' : exp.game_type === 'common_pool' ? 'Common Pool' : 'Public Goods'}
                 </span>
               </div>
               <div className="room-info">

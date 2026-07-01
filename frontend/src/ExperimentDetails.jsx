@@ -27,7 +27,8 @@ function ExperimentDetails() {
         const allConditions = [
           ...(data.prisoner_conditions || []),
           ...(data.ultimatum_conditions || []),
-          ...(data.public_goods_conditions || [])
+          ...(data.public_goods_conditions || []),
+          ...(data.common_pool_conditions || [])
         ]
         setConditions(allConditions)
       }
@@ -183,6 +184,40 @@ function ExperimentDetails() {
                   <div className="stat-card">
                     <span className="stat-label">Multiplier</span>
                     <span className="stat-val">x{currentCondition.multiplier}</span>
+                  </div>
+                  {currentCondition.room_type !== 'basic' && (
+                    <>
+                      <div className="stat-card">
+                        <span className="stat-label">Reward (Ratio)</span>
+                        <span className="stat-val">{currentCondition.reward_cost} : {currentCondition.reward_value}</span>
+                      </div>
+                      <div className="stat-card">
+                        <span className="stat-label">Punishment (Ratio)</span>
+                        <span className="stat-val">{currentCondition.punishment_cost} : {currentCondition.punishment_value}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {experiment.game_type === 'common_pool' && (
+                <div className="param-group">
+                  <h4>Interaction Rules</h4>
+                  <div className="stat-card">
+                    <span className="stat-label">Room Type</span>
+                    <span className="stat-val capitalize">{currentCondition.room_type}</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">Fish Stock</span>
+                    <span className="stat-val">{currentCondition.initial_fish_stock}</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">Max Extraction</span>
+                    <span className="stat-val">{currentCondition.max_extraction}</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">Bonus Multiplier</span>
+                    <span className="stat-val">x{currentCondition.final_bonus_multiplier}</span>
                   </div>
                   {currentCondition.room_type !== 'basic' && (
                     <>

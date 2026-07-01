@@ -92,13 +92,17 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                 )
             )()
 
-            needs_offer = (
-                (self.player_fingerprint == first.player_1_fingerprint and
-                current_round.player_1_coins_to_offer is None)
-                or
-                (self.player_fingerprint == first.player_2_fingerprint and
-                 current_round.player_2_coins_to_offer is None)
-            )
+            needs_offer = False
+            if getattr(current_round, 'game_type', 'iterative') == 'one_shot':
+                needs_offer = (self.player_fingerprint == first.player_1_fingerprint and current_round.player_1_coins_to_offer is None)
+            else:
+                needs_offer = (
+                    (self.player_fingerprint == first.player_1_fingerprint and
+                    current_round.player_1_coins_to_offer is None)
+                    or
+                    (self.player_fingerprint == first.player_2_fingerprint and
+                     current_round.player_2_coins_to_offer is None)
+                )
             if needs_offer:
                 await self.handle_player_timeout("offer")
         except asyncio.CancelledError:
@@ -129,20 +133,26 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                 )
             )()
 
-            # Check if both offers are made and this player needs to respond
-            both_offers_made = (current_round.player_1_coins_to_offer is not None and
-                              current_round.player_2_coins_to_offer is not None)
+            needs_response = False
+            if getattr(current_round, 'game_type', 'iterative') == 'one_shot':
+                if current_round.player_1_coins_to_offer is not None:
+                    needs_response = (self.player_fingerprint == first.player_2_fingerprint and current_round.player_2_response_to_p1_offer is None)
+            else:
+                # Check if both offers are made and this player needs to respond
+                both_offers_made = (current_round.player_1_coins_to_offer is not None and
+                                  current_round.player_2_coins_to_offer is not None)
 
-            if both_offers_made:
-                needs_response = (
-                    (self.player_fingerprint == first.player_1_fingerprint and
-                     current_round.player_1_response_to_p2_offer is None)
-                    or
-                    (self.player_fingerprint == first.player_2_fingerprint and
-                     current_round.player_2_response_to_p1_offer is None)
-                )
-                if needs_response:
-                    await self.handle_player_timeout("response")
+                if both_offers_made:
+                    needs_response = (
+                        (self.player_fingerprint == first.player_1_fingerprint and
+                         current_round.player_1_response_to_p2_offer is None)
+                        or
+                        (self.player_fingerprint == first.player_2_fingerprint and
+                         current_round.player_2_response_to_p1_offer is None)
+                    )
+
+            if needs_response:
+                await self.handle_player_timeout("response")
         except asyncio.CancelledError:
             pass    # normal path when player responds
 
@@ -297,13 +307,20 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                 # Check if bot needs to make offer
                 await self.handle_bot_offer_if_needed()
 
-                # NEW: Check if both offers are now made and start response timeout
+                # NEW: Check if offers are now made and start response timeout
                 current_round = await self.get_current_round()
-                if (current_round and
-                    current_round.player_1_coins_to_offer is not None and
-                    current_round.player_2_coins_to_offer is not None):
-                    logger.info(f"Both offers made in match {self.match_id}, starting response timeout")
-                    await self.start_response_timeout()
+                if current_round:
+                    if getattr(current_round, 'game_type', 'iterative') == 'one_shot':
+                        if current_round.player_1_coins_to_offer is not None:
+                            logger.info(f"P1 offer made in match {self.match_id}, starting response timeout")
+                            await self.start_response_timeout()
+                            await self.handle_bot_response_if_needed()
+                    else:
+                        if (current_round.player_1_coins_to_offer is not None and
+                            current_round.player_2_coins_to_offer is not None):
+                            logger.info(f"Both offers made in match {self.match_id}, starting response timeout")
+                            await self.start_response_timeout()
+                            await self.handle_bot_response_if_needed()
 
             except Exception as e:
                 logger.error(f"Error processing offer: {e}")
@@ -456,6 +473,7 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def is_match_complete(self):
         try:
+            # First check the fast path: match_complete flag already set
             completed_match = UltimatumGameRound.objects.filter(
                 game_match_uuid=self.match_id,
                 match_complete=True
@@ -472,13 +490,9 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
             if not first_round:
                 return False
 
-            completed_rounds = UltimatumGameRound.objects.filter(
-                game_match_uuid=self.match_id,
-                player_1_coins_to_offer__isnull=False,
-                player_2_coins_to_offer__isnull=False,
-                player_1_response_to_p2_offer__isnull=False,
-                player_2_response_to_p1_offer__isnull=False
-            ).count()
+            # Use the model's classmethod which correctly handles both game types
+            # (one-shot only needs p1_offer + p2_response, iterative needs all 4 fields)
+            completed_rounds = UltimatumGameRound.get_completed_rounds_count(self.match_id)
 
             return completed_rounds >= first_round.total_rounds
         except Exception as e:
@@ -616,6 +630,9 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                 current_round.player_1_coins_to_keep = coins_to_keep
                 current_round.player_1_coins_to_offer = coins_to_offer
             elif fp == first_round.player_2_fingerprint:
+                if getattr(first_round, 'game_type', 'iterative') == 'one_shot':
+                    logger.warning(f"Player 2 cannot make offer in one-shot mode")
+                    return False
                 if current_round.player_2_coins_to_offer is not None:
                     logger.warning(f"Player 2 already made offer in round {current_round.round_number}")
                     return False
@@ -650,6 +667,9 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
 
             # Player 1 responding to Player 2's offer
             if fp == first_round.player_1_fingerprint and target_player == "player_2":
+                if getattr(first_round, 'game_type', 'iterative') == 'one_shot':
+                    logger.warning(f"Player 1 cannot respond in one-shot mode")
+                    return False
                 if current_round.player_2_coins_to_offer is None:
                     logger.warning(f"Player 2 hasn't made offer yet")
                     return False
@@ -725,6 +745,8 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
             }
             summary = {
                 "round_number": current_round.round_number,
+                "game_type": getattr(current_round, 'game_type', 'iterative'),
+                "endowment": current_round.endowment,
                 "p1_offer":    current_round.player_1_coins_to_offer,
                 "p2_offer":    current_round.player_2_coins_to_offer,
                 "p1_response": current_round.player_1_response_to_p2_offer,  # what P1 said
@@ -877,6 +899,7 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                 "waitingForOpponent": waiting_for_opponent,
                 "gameOver": game_over,
                 "gameMode": first_round.game_mode,
+                "gameType": getattr(first_round, 'game_type', 'iterative'),
                 "player1Fingerprint": first_round.player_1_fingerprint,
                 "player2Fingerprint": first_round.player_2_fingerprint,
                 "currentRoundState": {
@@ -904,6 +927,9 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
             if (current_round and current_round.game_mode == "bot" and
                 current_round.player_2_fingerprint == "bot" and
                 current_round.player_2_coins_to_offer is None):
+                
+                if getattr(current_round, 'game_type', 'iterative') == 'one_shot':
+                    return
 
                 # await asyncio.sleep(1.0)  # Bot thinking time
                 # coins_to_offer = random.randint(20, 50)
@@ -940,6 +966,11 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                 seed = int(hashlib.sha256(f"offer:{self.match_id}:{current_round.round_number}".encode()).hexdigest(), 16) & 0xffffffff
                 rng = random.Random(seed)
 
+                first_round = await database_sync_to_async(
+                    lambda: UltimatumGameRound.objects.get(
+                        game_match_uuid=self.match_id, round_number=1
+                    )
+                )()
                 endowment = first_round.endowment
                 HARD_MIN_OFFER = int(endowment * 0.15)   # absolute lower bound (to human)
                 SOFT_UPPER     = int(endowment * 0.50)   # above this is allowed but rarer
@@ -1034,11 +1065,16 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
 
                     # Check if both offers are now made (human + bot)
                     updated_round = await self.get_current_round()
-                    if (updated_round and
-                        updated_round.player_1_coins_to_offer is not None and
-                        updated_round.player_2_coins_to_offer is not None):
-                        logger.info(f"Both offers made (including bot) in match {self.match_id}, starting response timeout")
-                        await self.start_response_timeout()
+                    if updated_round:
+                        if getattr(updated_round, 'game_type', 'iterative') == 'one_shot':
+                            # Should not reach here, but just in case
+                            pass
+                        else:
+                            if (updated_round.player_1_coins_to_offer is not None and
+                                updated_round.player_2_coins_to_offer is not None):
+                                logger.info(f"Both offers made (including bot) in match {self.match_id}, starting response timeout")
+                                await self.start_response_timeout()
+                                await self.handle_bot_response_if_needed()
 
         except Exception as e:
             logger.error(f"Error making bot offer: {e}")
@@ -1080,6 +1116,13 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                     seed = int(hashlib.sha256(f"resp:{self.match_id}:{current_round.round_number}".encode()).hexdigest(), 16) & 0xffffffff
                     rng = random.Random(seed)
 
+                    first_round = await database_sync_to_async(
+                        lambda: UltimatumGameRound.objects.get(
+                            game_match_uuid=self.match_id, round_number=1
+                        )
+                    )()
+                    endowment = first_round.endowment
+
                     # Look at recent human offers (last 5) to shift acceptance threshold slightly
                     rounds = await database_sync_to_async(
                         lambda: list(UltimatumGameRound.objects
@@ -1120,6 +1163,35 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                         logger.info(
                             f"Bot resp: offer_to_bot={offer_to_bot} center≈{center:.1f} p≈{p_accept:.2f} → {response}"
                         )
+
+                        # Check if round is complete after bot response (essential for one-shot bot mode)
+                        if await self.check_round_complete():
+                            logger.info(f"Round complete in match {self.match_id} after bot response, calculating results...")
+                            await self.calculate_round_results()
+                            gs = await self.get_game_state()
+                            await self.channel_layer.group_send(self.room_group_name, {
+                                "type": "game_state_update",
+                                "game_state": gs,
+                            })
+
+                            if gs.get("gameOver"):
+                                logger.info(f"Game over for match {self.match_id}")
+                                await self.channel_layer.group_send(self.room_group_name, {
+                                    "type": "game_over",
+                                    "player1_score": gs.get("player1Score", 0),
+                                    "player2_score": gs.get("player2Score", 0),
+                                })
+                                await database_sync_to_async(export_ultimatum_all)()
+                            else:
+                                logger.info(f"Creating next round for match {self.match_id}")
+                                next_round_created = await self.create_next_round()
+                                if next_round_created:
+                                    updated_gs = await self.get_game_state()
+                                    await self.channel_layer.group_send(self.room_group_name, {
+                                        "type": "game_state_update",
+                                        "game_state": updated_gs,
+                                    })
+                                    await self.start_offer_timeout()
 
 
         except Exception as e:

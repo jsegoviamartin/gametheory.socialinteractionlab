@@ -33,6 +33,7 @@ def create_match(request):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
 
     game_mode = data.get('game_mode', 'online')
+    game_type = data.get('game_type', 'iterative')
     player_fingerprint = data.get('player_fingerprint')
 
     if not player_fingerprint:
@@ -47,6 +48,7 @@ def create_match(request):
             # Search for available match with NO experiment_id (standard game)
             existing_round = UltimatumGameRound.objects.filter(
                 game_mode='online',
+                game_type=game_type,
                 player_2_fingerprint__isnull=True,
                 match_complete=False,
                 round_number=1,
@@ -88,12 +90,13 @@ def create_match(request):
                     game_match_uuid=match_id,
                     round_number=1,
                     game_mode=game_mode,
+                    game_type=game_type,
                     player_1_fingerprint=player_fingerprint,
                     player_1_country='Unknown',
                     player_1_city='Unknown',
                     player_1_ip_address=ip_address,
                     endowment=100,      # Default for standard rooms
-                    total_rounds=25     # Default for standard rooms
+                    total_rounds=1 if game_type == 'one_shot' else 25
                 )
                 print(f"[create_match] created new match {match_id}")
                 return JsonResponse({
@@ -110,6 +113,7 @@ def create_match(request):
                 game_match_uuid=match_id,
                 round_number=1,
                 game_mode=game_mode,
+                game_type=game_type,
                 player_1_fingerprint=player_fingerprint,
                 player_1_country='Unknown',
                 player_1_city='Unknown',
@@ -117,7 +121,9 @@ def create_match(request):
                 player_2_fingerprint='bot',
                 player_2_country='Bot',
                 player_2_city='Bot',
-                player_2_ip_address=None  # Bot doesn't have an IP
+                player_2_ip_address=None,  # Bot doesn't have an IP
+                endowment=100,
+                total_rounds=1 if game_type == 'one_shot' else 25
             )
             print(f"[create_match] created bot match {match_id}")
             return JsonResponse({

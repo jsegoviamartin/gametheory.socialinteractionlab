@@ -7,6 +7,7 @@ class CustomExperiment(models.Model):
         ('prisoner', '2x2 Game'),
         ('ultimatum', 'Ultimatum'),
         ('public_goods', 'Public Goods'),
+        ('common_pool', 'Common-Pool Resource'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -72,5 +73,27 @@ class CustomPublicGoods(models.Model):
     reward_value = models.IntegerField(default=12)
     punishment_cost = models.IntegerField(default=4)
     punishment_value = models.IntegerField(default=12)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class CustomCommonPool(models.Model):
+    creator_username = models.CharField(max_length=150, blank=True, null=True)
+    experiment_name = models.CharField(max_length=255, blank=True, null=True)
+    secret_code = models.CharField(max_length=6, blank=True, null=True)
+    experiment = models.ForeignKey(CustomExperiment, on_delete=models.CASCADE, related_name='common_pool_conditions')
+    condition_name = models.CharField(max_length=255)
+    
+    room_type = models.CharField(max_length=50, default="basic") # basic, reward, punishment, mixed
+    initial_fish_stock = models.IntegerField(default=100)
+    max_fish_stock = models.IntegerField(default=100)
+    max_extraction = models.IntegerField(default=10)
+    final_bonus_multiplier = models.FloatField(default=0.4)
+    rounds = models.IntegerField(default=20)
+    
+    reward_cost = models.FloatField(default=1.0)
+    reward_value = models.FloatField(default=4.0)
+    punishment_cost = models.FloatField(default=1.0)
+    punishment_value = models.FloatField(default=4.0)
     
     created_at = models.DateTimeField(auto_now_add=True)
