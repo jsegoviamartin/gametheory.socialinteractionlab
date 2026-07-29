@@ -214,6 +214,7 @@ def matchmake_custom_ultimatum(request):
             game_match_uuid=match_id,
             round_number=1,
             game_mode='online',
+            game_type=chosen_cond.game_type,
             experiment_id=exp_id,
             condition_id=chosen_cond.id,
             endowment=chosen_cond.endowment,

@@ -118,7 +118,7 @@
 
 .rows-header {
   display: grid;
-  grid-template-columns: 2fr 110px 1.2fr 100px 1.2fr 200px;
+  grid-template-columns: 2fr 110px 1.2fr 100px 1.2fr 260px;
   gap: 0 1rem;
   padding: 1.25rem 2rem;
   background: rgba(255, 255, 255, 0.03);
@@ -132,7 +132,7 @@
 
 .experiment-row {
   display: grid;
-  grid-template-columns: 2fr 110px 1.2fr 100px 1.2fr 200px;
+  grid-template-columns: 2fr 110px 1.2fr 100px 1.2fr 260px;
   gap: 0 1rem;
   padding: 1.5rem 2rem;
   align-items: center;
@@ -349,3 +349,29 @@
   border-color: #38bdf8;
   color: white;
 }
+
+.game-type-badge.common_pool {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.retention-warning-banner {
+  background: rgba(245, 158, 11, 0.04);
+  border: 1px solid rgba(245, 158, 11, 0.12);
+  border-radius: 1rem;
+  padding: 1rem 1.75rem;
+  margin-bottom: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #f59e0b;
+  font-size: 0.9rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+}
+
+.retention-warning-banner strong {
+  font-weight: 700;
+  color: #fbbf24;
+}
+

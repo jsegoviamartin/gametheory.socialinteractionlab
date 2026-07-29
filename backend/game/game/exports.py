@@ -15,7 +15,7 @@ from django.conf import settings
 from the_game.models import GameMatch, GameRound
 
 # Import ultimatum
-from django.db.models import Case, Count, IntegerField, Min, When
+from django.db.models import Case, Count, IntegerField, Min, When, Q
 from ultimatum.models import UltimatumGameRound
 
 # Import Public Goods
@@ -56,6 +56,8 @@ CUSTOM_PUBLIC_GOODS_SQL = EXPORT_ROOT / "data_custom_public_goods.sql"
 
 CUSTOM_COMMON_POOL_CSV = EXPORT_ROOT / "data_custom_common_pool_clean.csv"
 CUSTOM_COMMON_POOL_SQL = EXPORT_ROOT / "data_custom_common_pool.sql"
+REGISTERED_USERS_CSV = EXPORT_ROOT / "registered_users_clean.csv"
+
 
 
 
@@ -384,7 +386,17 @@ def _ultimatum_completed_match_ids():
         .filter(n__gte=25)
         .values_list("game_match_uuid", flat=True)
     )
-    return flagged | twentyfive
+    oneshot_completed = set(
+        UltimatumGameRound.objects.filter(
+            game_type='one_shot',
+            player_1_coins_to_keep__isnull=False,
+            player_1_coins_to_offer__isnull=False,
+            player_2_response_to_p1_offer__isnull=False
+        )
+        .values_list("game_match_uuid", flat=True)
+        .distinct()
+    )
+    return flagged | twentyfive | oneshot_completed
 
 
 def _ultimatum_rows():
@@ -396,6 +408,7 @@ def _ultimatum_rows():
         "round_number",
         "game_match_uuid",
         "game_mode",
+        "game_type",
         "player_1_fingerprint",
         "player_1_ip_address",
         "player_1_coins_to_keep",
@@ -453,14 +466,24 @@ def _ultimatum_rows():
     qs = (
         UltimatumGameRound.objects
         .filter(
-            game_match_uuid__in=completed_ids,
-            player_1_coins_to_keep__isnull=False,
-            experiment_id__isnull=True,
-            player_1_coins_to_offer__isnull=False,
-            player_2_coins_to_keep__isnull=False,
-            player_2_coins_to_offer__isnull=False,
-            player_1_response_to_p2_offer__isnull=False,
-            player_2_response_to_p1_offer__isnull=False,
+            Q(
+                game_match_uuid__in=completed_ids,
+                experiment_id__isnull=True,
+                game_type='iterative',
+                player_1_coins_to_keep__isnull=False,
+                player_1_coins_to_offer__isnull=False,
+                player_2_coins_to_keep__isnull=False,
+                player_2_coins_to_offer__isnull=False,
+                player_1_response_to_p2_offer__isnull=False,
+                player_2_response_to_p1_offer__isnull=False
+            ) | Q(
+                game_match_uuid__in=completed_ids,
+                experiment_id__isnull=True,
+                game_type='one_shot',
+                player_1_coins_to_keep__isnull=False,
+                player_1_coins_to_offer__isnull=False,
+                player_2_response_to_p1_offer__isnull=False
+            )
         )
         .order_by("game_match_uuid", "round_number")
     )
@@ -480,6 +503,7 @@ def _ultimatum_rows():
                 rn,
                 ugr.game_match_uuid,
                 ugr.game_mode,
+                ugr.game_type,
                 ugr.player_1_fingerprint,
                 ugr.player_1_ip_address,
                 ugr.player_1_coins_to_keep,
@@ -560,6 +584,7 @@ CREATE TABLE IF NOT EXISTS data_ultimatum (
     round_number INTEGER,
     game_match_uuid TEXT,
     game_mode TEXT,
+    game_type TEXT,
     player_1_fingerprint TEXT,
     player_1_ip_address TEXT,
     player_1_coins_to_keep INTEGER,
@@ -617,6 +642,7 @@ DELETE FROM data_ultimatum;
             "round_number",
             "game_match_uuid",
             "game_mode",
+            "game_type",
             "player_1_fingerprint",
             "player_1_ip_address",
             "player_1_coins_to_keep",
@@ -1460,7 +1486,7 @@ def get_user_data_csv(user, game_type):
     
     return output.getvalue()
 
-def _custom_prisoner_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]:
+def _custom_prisoner_rows(user=None, experiment_id=None) -> Tuple[List[str], Iterable[List[Any]]]:
     """Build rows for Custom Prisoner's Dilemma matches."""
     headers = [
         "row_number", "experiment_name", "condition_name", "secret_code",
@@ -1491,7 +1517,9 @@ def _custom_prisoner_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]:
         )
     )
 
-    if user:
+    if experiment_id:
+        qs = qs.filter(match__experiment_id=experiment_id)
+    elif user:
         user_experiments = CustomExperiment.objects.filter(creator=user).values_list('id', flat=True)
         qs = qs.filter(match__experiment_id__in=user_experiments)
 
@@ -1579,11 +1607,11 @@ DELETE FROM data_custom_prisoners;
     _atomic_write(CUSTOM_PRISONER_SQL, write_sql)
 
 
-def _custom_ultimatum_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]:
+def _custom_ultimatum_rows(user=None, experiment_id=None) -> Tuple[List[str], Iterable[List[Any]]]:
     """Build rows for Custom Ultimatum matches."""
     headers = [
         "round_number", "experiment_name", "condition_name", "secret_code",
-        "game_match_uuid", "game_mode", "endowment", "total_rounds",
+        "game_match_uuid", "game_mode", "game_type", "endowment", "total_rounds",
         "player_1_fingerprint", "player_1_ip_address", "player_1_coins_to_keep", "player_1_coins_to_offer",
         "player_1_response_to_p2_offer", "player_1_coins_made_in_round",
         "player_2_fingerprint", "player_2_ip_address", "player_2_coins_to_keep", "player_2_coins_to_offer",
@@ -1604,18 +1632,30 @@ def _custom_ultimatum_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]:
     qs = (
         UltimatumGameRound.objects
         .filter(
-            game_match_uuid__in=completed_ids,
-            experiment_id__isnull=False,
-            player_1_coins_to_keep__isnull=False,
-            player_1_coins_to_offer__isnull=False,
-            player_2_coins_to_keep__isnull=False,
-            player_2_coins_to_offer__isnull=False,
-            player_1_response_to_p2_offer__isnull=False,
-            player_2_response_to_p1_offer__isnull=False,
+            Q(
+                game_match_uuid__in=completed_ids,
+                experiment_id__isnull=False,
+                game_type='iterative',
+                player_1_coins_to_keep__isnull=False,
+                player_1_coins_to_offer__isnull=False,
+                player_2_coins_to_keep__isnull=False,
+                player_2_coins_to_offer__isnull=False,
+                player_1_response_to_p2_offer__isnull=False,
+                player_2_response_to_p1_offer__isnull=False
+            ) | Q(
+                game_match_uuid__in=completed_ids,
+                experiment_id__isnull=False,
+                game_type='one_shot',
+                player_1_coins_to_keep__isnull=False,
+                player_1_coins_to_offer__isnull=False,
+                player_2_response_to_p1_offer__isnull=False
+            )
         )
     )
 
-    if user:
+    if experiment_id:
+        qs = qs.filter(experiment_id=experiment_id)
+    elif user:
         user_experiments = CustomExperiment.objects.filter(creator=user).values_list('id', flat=True)
         qs = qs.filter(experiment_id__in=user_experiments)
 
@@ -1643,7 +1683,7 @@ def _custom_ultimatum_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]:
                 exp.name if exp else "N/A",
                 cond.condition_name if cond else "N/A",
                 exp.secret_code if exp else "N/A",
-                ugr.game_match_uuid, ugr.game_mode, ugr.endowment, ugr.total_rounds,
+                ugr.game_match_uuid, ugr.game_mode, ugr.game_type, ugr.endowment, ugr.total_rounds,
                 ugr.player_1_fingerprint, ugr.player_1_ip_address, ugr.player_1_coins_to_keep, ugr.player_1_coins_to_offer,
                 ugr.player_1_response_to_p2_offer, ugr.player_1_coins_made_in_round,
                 ugr.player_2_fingerprint, ugr.player_2_ip_address, ugr.player_2_coins_to_keep, ugr.player_2_coins_to_offer,
@@ -1674,7 +1714,7 @@ def export_custom_ultimatum_all() -> None:
     ddl = """BEGIN;
 CREATE TABLE IF NOT EXISTS data_custom_ultimatum (
     round_number INTEGER, experiment_name TEXT, condition_name TEXT, secret_code TEXT,
-    game_match_uuid TEXT, game_mode TEXT, endowment INTEGER, total_rounds INTEGER,
+    game_match_uuid TEXT, game_mode TEXT, game_type TEXT, endowment INTEGER, total_rounds INTEGER,
     player_1_fingerprint TEXT, player_1_ip_address TEXT, player_1_coins_to_keep INTEGER, player_1_coins_to_offer INTEGER,
     player_1_response_to_p2_offer TEXT, player_1_coins_made_in_round INTEGER,
     player_2_fingerprint TEXT, player_2_ip_address TEXT, player_2_coins_to_keep INTEGER, player_2_coins_to_offer INTEGER,
@@ -1702,7 +1742,7 @@ DELETE FROM data_custom_ultimatum;
     _atomic_write(CUSTOM_ULTIMATUM_SQL, write_sql)
 
 
-def _custom_public_goods_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]:
+def _custom_public_goods_rows(user=None, experiment_id=None) -> Tuple[List[str], Iterable[List[Any]]]:
     """Build rows for Custom Public Goods matches."""
     headers = [
         "game_match_uuid", "round_number", "experiment_name", "condition_name", "secret_code",
@@ -1746,7 +1786,9 @@ def _custom_public_goods_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]
         experiment_id__isnull=False
     )
 
-    if user:
+    if experiment_id:
+        completed_ids_qs = completed_ids_qs.filter(experiment_id=experiment_id)
+    elif user:
         user_experiments = CustomExperiment.objects.filter(creator=user).values_list('id', flat=True)
         completed_ids_qs = completed_ids_qs.filter(experiment_id__in=user_experiments)
 
@@ -1887,7 +1929,7 @@ DELETE FROM data_custom_public_goods;
     _atomic_write(CUSTOM_PUBLIC_GOODS_SQL, write_sql)
 
 
-def _custom_common_pool_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]:
+def _custom_common_pool_rows(user=None, experiment_id=None) -> Tuple[List[str], Iterable[List[Any]]]:
     """Build rows for Custom Common Pool Resource matches."""
     headers = [
         "match_id", "round_number", "experiment_name", "condition_name", "secret_code",
@@ -1934,7 +1976,9 @@ def _custom_common_pool_rows(user=None) -> Tuple[List[str], Iterable[List[Any]]]
         experiment_id__isnull=False
     )
 
-    if user:
+    if experiment_id:
+        completed_ids_qs = completed_ids_qs.filter(experiment_id=experiment_id)
+    elif user:
         user_experiments = CustomExperiment.objects.filter(creator=user).values_list('id', flat=True)
         completed_ids_qs = completed_ids_qs.filter(experiment_id__in=user_experiments)
 
@@ -2091,18 +2135,18 @@ DELETE FROM data_custom_common_pool;
     _atomic_write(CUSTOM_COMMON_POOL_SQL, write_sql)
 
 
-def get_user_data_csv(user, game_type):
+def get_user_data_csv(user, game_type, experiment_id=None):
     """
     Generate an in-memory CSV string for a specific user's custom experiments.
     """
     if game_type == 'prisoner':
-        headers, rows = _custom_prisoner_rows(user=user)
+        headers, rows = _custom_prisoner_rows(user=user, experiment_id=experiment_id)
     elif game_type == 'ultimatum':
-        headers, rows = _custom_ultimatum_rows(user=user)
+        headers, rows = _custom_ultimatum_rows(user=user, experiment_id=experiment_id)
     elif game_type == 'public_goods':
-        headers, rows = _custom_public_goods_rows(user=user)
+        headers, rows = _custom_public_goods_rows(user=user, experiment_id=experiment_id)
     elif game_type == 'common_pool':
-        headers, rows = _custom_common_pool_rows(user=user)
+        headers, rows = _custom_common_pool_rows(user=user, experiment_id=experiment_id)
     else:
         return None
 
@@ -2157,3 +2201,75 @@ def get_combined_user_data_csv(user):
         writer.writerow(row_dict)
 
     return output.getvalue()
+
+
+
+def cleanup_old_data() -> None:
+    """
+    Deletes custom experiments and match data (custom and standard) that are
+    older than 14 days. Re-runs exports afterward to sync the static CSV/SQL files.
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    cutoff = timezone.now() - timedelta(days=14)
+    
+    # Delete standard & custom PD matches (GameRound cascades)
+    GameMatch.objects.filter(created_at__lt=cutoff).delete()
+    
+    # Delete Ultimatum rounds
+    UltimatumGameRound.objects.filter(created_at__lt=cutoff).delete()
+    
+    # Delete Public Goods rounds
+    PublicGoodsGameData.objects.filter(created_at__lt=cutoff).delete()
+    
+    # Delete Common Pool rounds
+    CommonPoolGameData.objects.filter(created_at__lt=cutoff).delete()
+    
+    # Delete Custom Experiments
+    CustomExperiment.objects.filter(created_at__lt=cutoff).delete()
+    
+    # Re-run all exports to clean exports files
+    export_prisoner_all()
+    export_ultimatum_all()
+    export_public_goods_all()
+    export_common_pool_all()
+    export_registered_users()
+
+
+def export_registered_users() -> None:
+    """Export the list of registered users and their experiments to a CSV file."""
+    from django.contrib.auth.models import User
+    
+    headers = [
+        'ID', 'Username', 'Email', 'Date Joined', 'Last Login', 
+        'Total Experiments', 'Experiments Details'
+    ]
+    
+    users = User.objects.all().order_by('date_joined')
+    
+    def write_csv(fh):
+        writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(headers)
+        for user in users:
+            experiments = user.custom_experiments.all().order_by('created_at')
+            total_experiments = experiments.count()
+            
+            exp_details_list = []
+            for exp in experiments:
+                date_str = exp.created_at.strftime('%Y-%m-%d') if exp.created_at else ''
+                exp_details_list.append(f"{exp.name} ({exp.game_type}, {date_str})")
+            experiments_details = "; ".join(exp_details_list)
+            
+            writer.writerow([
+                user.id,
+                user.username,
+                user.email,
+                user.date_joined.strftime('%Y-%m-%d %H:%M:%S') if user.date_joined else '',
+                user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else '',
+                total_experiments,
+                experiments_details
+            ])
+            
+    _atomic_write(REGISTERED_USERS_CSV, write_csv)
+

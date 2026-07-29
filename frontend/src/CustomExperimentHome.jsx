@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
-import { Users, Bot, Coins, ArrowLeft, Database, Trophy, Zap, Play } from "lucide-react"
+import { Coins, ArrowLeft, Database, Zap, Play } from "lucide-react"
 import PayoffMatrix from "./components/PayoffMatrix"
 import { gameApi, getPlayerFingerprint } from "./services/gameApi"
 import "./CustomExperimentHome.css"
@@ -314,74 +314,108 @@ function CustomExperimentHome() {
     </div>
   )
 
-  const renderUltimatumContent = () => (
-    <div className="how-to-play-card">
-      <div className="how-to-play-header">
-        <Coins className="how-to-play-icon" />
-        <h2 className="how-to-play-title">How to Play</h2>
-      </div>
-      <div className="how-to-play-steps">
-        <div className="step">
-          <div className="step-number"><span>1</span></div>
-          <h3 className="step-title">Make an Offer</h3>
-          <p className="step-description">Decide how much of the {currentCondition.endowment || 100} to offer your opponent</p>
-        </div>
-        <div className="step">
-          <div className="step-number"><span>2</span></div>
-          <h3 className="step-title">Wait for Decision</h3>
-          <p className="step-description">Your opponent will accept or reject your offer</p>
-        </div>
-        <div className="step">
-          <div className="step-number"><span>3</span></div>
-          <h3 className="step-title">Get Results</h3>
-          <p className="step-description">If accepted, you both get money. If rejected, nobody gets anything</p>
-        </div>
-      </div>
+  const renderUltimatumContent = () => {
+    const isOneShot = currentCondition.game_type === "one_shot"
+    const endowment = currentCondition.endowment || 100
+    const rounds = currentCondition.rounds || 10
 
-      <div className="how-to-play-instructions">
-        <div className="instruction-section">
-          <p className="instruction-intro">
-            You are about to play <strong>{currentCondition.rounds || 20} rounds</strong> of a two-simultaneous ultimatum game.
-          </p>
-          
-          <div className="instruction-details">
-            <h4>In each round:</h4>
-            <ul>
-              <li>You will <strong>make an offer</strong>: decide how to split {currentCondition.endowment || 100} coins.</li>
-              <li>The other player will also make an offer at the same time.</li>
-              <li>Then, you'll see the other player's offer and choose to <strong>accept or reject it</strong>.</li>
-              <li>At the same time, the other player will decide whether to accept your offer.</li>
-              <li>Proposals are only valid if they are accepted. If a proposal is rejected, no coins are given from it.</li>
-            </ul>
+    return (
+      <div className="how-to-play-card">
+        <div className="how-to-play-header">
+          <Coins className="how-to-play-icon" />
+          <h2 className="how-to-play-title">How to Play ({isOneShot ? "One-Shot" : "Iterative"})</h2>
+        </div>
+        <div className="how-to-play-steps">
+          <div className="step">
+            <div className="step-number"><span>1</span></div>
+            <h3 className="step-title">{isOneShot ? "Player 1 Proposes" : "Make an Offer"}</h3>
+            <p className="step-description">
+              {isOneShot 
+                ? `Player 1 decides how much of the ${endowment} coins to offer to Player 2` 
+                : `Decide how much of the ${endowment} coins to offer your opponent`}
+            </p>
           </div>
-          
-          <div className="examples-section">
-            <h4>Examples:</h4>
+          <div className="step">
+            <div className="step-number"><span>2</span></div>
+            <h3 className="step-title">{isOneShot ? "Player 2 Decides" : "Wait for Decision"}</h3>
+            <p className="step-description">
+              {isOneShot 
+                ? "Player 2 accepts or rejects the offer" 
+                : "Your opponent will accept or reject your offer"}
+            </p>
+          </div>
+          <div className="step">
+            <div className="step-number"><span>3</span></div>
+            <h3 className="step-title">Get Results</h3>
+            <p className="step-description">
+              {isOneShot 
+                ? "If accepted, the split is paid. If rejected, both get 0." 
+                : "Earn coins for accepted offers. Rejected offers yield 0."}
+            </p>
+          </div>
+        </div>
+
+        <div className="how-to-play-instructions">
+          <div className="instruction-section">
+            <p className="instruction-intro">
+              {isOneShot ? (
+                <span>You are about to play a <strong>single (1) round</strong> of the classic Ultimatum Game. Roles (proposer or responder) are assigned randomly.</span>
+              ) : (
+                <span>You are about to play <strong>{rounds} rounds</strong> of a two-simultaneous ultimatum game.</span>
+              )}
+            </p>
             
-            <div className="example">
-              <h5><strong>Example 1: Both offers accepted</strong></h5>
-              <p>You offer: keep 40%, give 60% → they accept</p>
-              <p>They offer: keep 70%, give 30% → you accept</p>
-              <p className="example-result">✅ You earn: {Math.floor(currentCondition.endowment * 0.4)} + {Math.floor(currentCondition.endowment * 0.3)} = <strong>{Math.floor(currentCondition.endowment * 0.7)} coins</strong></p>
+            <div className="instruction-details">
+              <h4>Rules:</h4>
+              {isOneShot ? (
+                <ul>
+                  <li>The Proposer is given <strong>{endowment} coins</strong>.</li>
+                  <li>The Proposer decides on an offer to give the Responder (between 0 and {endowment}).</li>
+                  <li>The Responder sees the offer and chooses to <strong>accept or reject it</strong>.</li>
+                  <li>If the Responder accepts: the Proposer gets {endowment} - offer, and Responder gets the offer.</li>
+                  <li>If the Responder rejects: both players receive <strong>0 coins</strong>.</li>
+                </ul>
+              ) : (
+                <ul>
+                  <li>In each round, you will <strong>make an offer</strong>: decide how to split {endowment} coins.</li>
+                  <li>The other player will also make an offer at the same time.</li>
+                  <li>Then, you'll see the other player's offer and choose to <strong>accept or reject it</strong>.</li>
+                  <li>At the same time, the other player will decide whether to accept your offer.</li>
+                  <li>Proposals are only valid if they are accepted. If a proposal is rejected, no coins are given from it.</li>
+                </ul>
+              )}
             </div>
             
-            <div className="example">
-              <h5><strong>Example 2: You reject, they accept</strong></h5>
-              <p>You offer: keep 80%, give 20% → they accept</p>
-              <p>They offer: keep 90%, give 10% → you reject</p>
-              <p className="example-result">✅ You earn: {Math.floor(currentCondition.endowment * 0.8)} + 0 = <strong>{Math.floor(currentCondition.endowment * 0.8)} coins</strong></p>
-            </div>
-            
-            <div className="example">
-              <h5><strong>Example 3: Both offers rejected</strong></h5>
-              <p>Both of you reject each other's offer</p>
-              <p className="example-result">❌ You earn: <strong>0 coins</strong></p>
-            </div>
+            {!isOneShot && (
+              <div className="examples-section">
+                <h4>Examples (Iterative):</h4>
+                
+                <div className="example">
+                  <h5><strong>Example 1: Both offers accepted</strong></h5>
+                  <p>You offer: keep 40%, give 60% → they accept</p>
+                  <p>They offer: keep 70%, give 30% → you accept</p>
+                  <p className="example-result">✅ You earn: {Math.floor(endowment * 0.4)} + {Math.floor(endowment * 0.3)} = <strong>{Math.floor(endowment * 0.7)} coins</strong></p>
+                </div>
+                
+                <div className="example">
+                  <h5><strong>Example 2: You reject, they accept</strong></h5>
+                  <p>You offer: keep 80%, give 20% → they accept</p>
+                  <p>They offer: keep 90%, give 10% → you reject</p>
+                  <p className="example-result">✅ You earn: {Math.floor(endowment * 0.8)} + 0 = <strong>{Math.floor(endowment * 0.8)} coins</strong></p>
+                </div>
+                
+                <div className="example">
+                  <h5><strong>Example 3: Both offers rejected</strong></h5>
+                  <p>Both of you reject each other's offer</p>
+                  <p className="example-result">❌ You earn: <strong>0 coins</strong></p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="hub-page">

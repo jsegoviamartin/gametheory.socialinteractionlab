@@ -21,6 +21,13 @@ class ExperimentViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
+        try:
+            from game.exports import cleanup_old_data
+            cleanup_old_data()
+        except Exception as e:
+            import logging
+            logging.getLogger("django").error(f"Auto-cleanup error: {e}")
+
         if self.action in ['lobby', 'retrieve']:
             return CustomExperiment.objects.all().order_by('-created_at')
         return CustomExperiment.objects.filter(creator=self.request.user).order_by('-created_at')
@@ -114,18 +121,31 @@ class ExperimentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def download_data(self, request):
+        experiment_id = request.query_params.get('experiment_id')
         game_type = request.query_params.get('game_type')
+        
+        if experiment_id:
+            try:
+                experiment = CustomExperiment.objects.get(id=experiment_id, creator=request.user)
+                game_type = experiment.game_type
+            except Exception:
+                return Response({"error": "Experiment not found or invalid ID"}, status=status.HTTP_404_NOT_FOUND)
+        
         if game_type not in ['prisoner', 'ultimatum', 'public_goods', 'common_pool', 'all']:
             return Response({"error": "Invalid game_type. Use 'prisoner', 'ultimatum', 'public_goods', 'common_pool', or 'all'."}, status=status.HTTP_400_BAD_REQUEST)
         
         if game_type == 'all':
             csv_data = get_combined_user_data_csv(request.user)
         else:
-            csv_data = get_user_data_csv(request.user, game_type)
+            csv_data = get_user_data_csv(request.user, game_type, experiment_id=experiment_id)
 
         if csv_data is None:
             return Response({"error": "No data found or failed to generate CSV"}, status=status.HTTP_200_OK)
         
         response = HttpResponse(csv_data, content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="my_{game_type}_data.csv"'
+        if experiment_id:
+            filename = f"experiment_{experiment.name.replace(' ', '_')}_data.csv"
+        else:
+            filename = f"my_{game_type}_data.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response

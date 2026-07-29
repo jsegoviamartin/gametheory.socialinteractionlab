@@ -212,7 +212,7 @@ const LivingFishPool = memo(({ targetStock, pendingExtraction, phase, maxExtract
   )
 })
 
-const ResultsPopup = ({ roundResults, onClose, roomType, playerIndex, roundNumber, TOTAL_ROUNDS }) => {
+const ResultsPopup = ({ roundResults, onClose, roomType, playerIndex, roundNumber, TOTAL_ROUNDS, gameOver }) => {
   const isBasic = roomType === "basic" || !roomType;
   const isFinalized = isBasic || (roundResults && roundResults.stage2Actions);
 
@@ -264,7 +264,7 @@ const ResultsPopup = ({ roundResults, onClose, roomType, playerIndex, roundNumbe
             onClose()
           }}
         >
-          {isFinalized ? (roundNumber >= TOTAL_ROUNDS ? "Finish Game" : "Next Round") : "Continue"}
+          {isFinalized ? ((gameOver || roundNumber >= TOTAL_ROUNDS) ? "Finish Game" : "Next Round") : "Continue"}
         </button>
       </div>
     </>
@@ -295,7 +295,7 @@ export default function CommonPoolResourceGamePage() {
   const fishCount = gameParams?.initialFishStock || 100
   const layoutCount = Math.max(100, fishCount, maxFishStock)
   const MAX_EXTRACTION = gameParams?.maxExtraction || 10;
-  const TOTAL_ROUNDS = gameParams?.totalRounds || 20;
+  const TOTAL_ROUNDS = gameParams?.totalRounds || 2;
   const ROUND_TIME = 30; // Standard phase time
   // ---------------------------------
   // Players
@@ -308,6 +308,7 @@ export default function CommonPoolResourceGamePage() {
   const [countdown, setCountdown] = useState(3)
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME)
   const [roundResults, setRoundResults] = useState(null)
+  const [gameOver, setGameOver] = useState(false)
   const [roundNumber, setRoundNumber] = useState(1)
   const [history, setHistory] = useState([])
   const [gameEndedReason, setGameEndedReason] = useState(null)
@@ -491,9 +492,11 @@ export default function CommonPoolResourceGamePage() {
             total: data.total,
             fishStock: data.fish_stock,
             nextFishStock: data.next_fish_stock,
-            newFishBorn: data.new_fish_born
+            newFishBorn: data.new_fish_born,
+            game_over: data.game_over || false
           };
 
+          setGameOver(data.game_over || false);
           setRoundResults(results);
           setHistory(prev => {
             const alreadyIn = prev.some(h => h.round === data.round);
@@ -537,9 +540,11 @@ export default function CommonPoolResourceGamePage() {
             fishStock: data.fish_stock,
             nextFishStock: data.next_fish_stock,
             newFishBorn: data.new_fish_born,
-            stage2Actions: data.actions
+            stage2Actions: data.actions,
+            game_over: data.game_over || false
           };
 
+          setGameOver(data.game_over || false);
           setRoundResults(updatedResults);
 
           setHistory(prev => {
@@ -622,8 +627,8 @@ export default function CommonPoolResourceGamePage() {
   };
 
   const advanceRound = () => {
-    if (roundNumber >= TOTAL_ROUNDS) {
-      setGameEndedReason("Game finished! All rounds completed.")
+    if (gameOver || roundNumber >= TOTAL_ROUNDS) {
+      setGameEndedReason(gameOver ? "Game finished! The fish stock has dropped to 0." : "Game finished! All rounds completed.")
       setPhase("finished")
       return
     }
@@ -915,6 +920,7 @@ export default function CommonPoolResourceGamePage() {
           playerIndex={playerIndex}
           roundNumber={roundNumber}
           TOTAL_ROUNDS={TOTAL_ROUNDS}
+          gameOver={gameOver}
         />
       )}
       {connectionStatus === "error" && phase !== "finished" && (

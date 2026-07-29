@@ -53,6 +53,7 @@ class CustomUltimatum(models.Model):
     
     endowment = models.IntegerField(default=100)
     rounds = models.IntegerField(default=10)
+    game_type = models.CharField(max_length=20, choices=[('iterative', 'Iterative'), ('one_shot', 'One Shot')], default='iterative')
     created_at = models.DateTimeField(auto_now_add=True)
 
 class CustomPublicGoods(models.Model):

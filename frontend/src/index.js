@@ -21,6 +21,7 @@ import PrisonersApp from "./prisoners/PrisonersApp"
 
 // Ultimatum game
 import RootLayout from "./ultimatum/RootLayout"
+import UltimatumRoomPage from "./ultimatum/UltimatumRoomPage"
 import UltimatumHome from "./ultimatum/HomePage"
 import UltimatumGame from "./ultimatum/GamePage"
 import UltimatumMatchmaking from "./ultimatum/MatchmakingPage"
@@ -77,6 +78,14 @@ root.render(
         {/* Ultimatum Game Routes */}
         <Route
           path="/ultimatum"
+          element={
+            <RootLayout>
+              <UltimatumRoomPage />
+            </RootLayout>
+          }
+        />
+        <Route
+          path="/ultimatum/:room"
           element={
             <RootLayout>
               <UltimatumHome />

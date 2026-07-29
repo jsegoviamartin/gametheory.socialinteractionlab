@@ -93,9 +93,20 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = RegisterSerializer
 
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        try:
+            from game.exports import export_registered_users
+            export_registered_users()
+        except Exception as e:
+            import sys
+            sys.stderr.write(f"Error exporting registered users: {e}\n")
+
 class UserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+
+

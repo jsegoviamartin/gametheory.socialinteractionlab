@@ -72,6 +72,7 @@ function ExperimentForm() {
               name: conditions.condition_name,
               prisoner_rounds: conditions.rounds,
               ultimatum_rounds: conditions.rounds,
+              ultimatum_game_type: conditions.game_type || "iterative",
               pg_rounds: conditions.rounds,
               pg_endowment: conditions.endowment,
               cpr_initial_fish_stock: conditions.initial_fish_stock || 100,
@@ -109,6 +110,7 @@ function ExperimentForm() {
     prisoner_rounds: 25,
     endowment: 100,
     ultimatum_rounds: 10,
+    ultimatum_game_type: "iterative",
     room_type: "basic",
     pg_endowment: 20,
     multiplier: 1.6,
@@ -258,7 +260,8 @@ function ExperimentForm() {
       } else if (expData.game_type === "ultimatum") {
         params = { ...params, 
           endowment: conditionData.endowment, 
-          rounds: conditionData.ultimatum_rounds 
+          rounds: conditionData.ultimatum_rounds,
+          game_type: conditionData.ultimatum_game_type
         }
       } else if (expData.game_type === "public_goods") {
         params = { ...params, 
@@ -465,8 +468,32 @@ function ExperimentForm() {
                     <input type="number" value={conditionData.endowment} onChange={e => updateCondition({ endowment: parseInt(e.target.value) })} />
                   </div>
                   <div className="input-field">
+                    <label>Game Type <Tooltip text="Choose Iterative (multiple simultaneous rounds) or One-Shot (single classic round)." /></label>
+                    <select 
+                      value={conditionData.ultimatum_game_type} 
+                      onChange={e => {
+                        const newType = e.target.value;
+                        const newRounds = newType === "one_shot" ? 1 : conditionData.ultimatum_rounds;
+                        updateCondition({ 
+                          ultimatum_game_type: newType,
+                          ultimatum_rounds: newRounds
+                        });
+                      }}
+                    >
+                      <option value="iterative">Iterative</option>
+                      <option value="one_shot">One-Shot</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="param-split" style={{ marginTop: "1rem" }}>
+                  <div className="input-field">
                     <label>Rounds <Tooltip text="Total number of offer-response rounds." /></label>
-                    <input type="number" value={conditionData.ultimatum_rounds} onChange={e => updateCondition({ ultimatum_rounds: parseInt(e.target.value) })} />
+                    <input 
+                      type="number" 
+                      value={conditionData.ultimatum_rounds} 
+                      onChange={e => updateCondition({ ultimatum_rounds: parseInt(e.target.value) })} 
+                      disabled={conditionData.ultimatum_game_type === 'one_shot'}
+                    />
                   </div>
                 </div>
               </div>

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # ======================================================
 # GAME SETTINGS (DEFAULTS)
 # ======================================================
-TOTAL_ROUNDS = 20
+TOTAL_ROUNDS = 2
 INITIAL_FISH_STOCK = 100
 MAX_FISH_STOCK = 100
 MAX_EXTRACTION = 10
@@ -439,7 +439,7 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                 row.next_fish_stock = next_stock
                 
                 payoffs = [float(c) for c in catches]
-                is_final_round = (row.round_number == row.total_rounds)
+                is_final_round = (row.round_number == row.total_rounds) or (next_stock == 0)
                 
                 for i in range(4):
                     p_val = payoffs[i]
@@ -498,7 +498,8 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                     "fish_stock": stock,
                     "next_fish_stock": next_stock,
                     "new_fish_born": new_fish_born,
-                    "actual_catches": {f"player_{i+1}": catches[i] for i in range(4)}
+                    "actual_catches": {f"player_{i+1}": catches[i] for i in range(4)},
+                    "game_over": is_final_round
                 }
         except Exception as e:
             logger.error(f"Finalize CPR error: {e}")
@@ -573,7 +574,7 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                     setattr(row, f"{prefix}_punish_counts", punish_counts)
 
                 # Add final round fish stock bonus if it is final round
-                is_final_round = (row.round_number == row.total_rounds)
+                is_final_round = (row.round_number == row.total_rounds) or (row.next_fish_stock == 0)
                 bonus = 0.0
                 if is_final_round:
                     bonus = row.final_bonus_multiplier * (row.next_fish_stock if row.next_fish_stock is not None else row.max_fish_stock)
@@ -624,6 +625,7 @@ class CommonPoolConsumer(AsyncWebsocketConsumer):
                     "fish_stock": row.fish_stock,
                     "next_fish_stock": row.next_fish_stock,
                     "new_fish_born": row.new_fish_born,
+                    "game_over": is_final_round
                 }
         except Exception as e:
             import traceback

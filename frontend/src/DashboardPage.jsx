@@ -88,6 +88,36 @@ function DashboardPage() {
     }
   }
 
+  const handleDownloadExperiment = async (experimentId, experimentName) => {
+    const token = localStorage.getItem("access_token")
+    try {
+      const response = await fetch(`/api/custom-rooms/experiments/download_data/?experiment_id=${experimentId}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) {
+        alert("Failed to download experiment data.")
+        return
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `experiment_${experimentName.replace(/\s+/g, '_')}_data.csv`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err) {
+      console.error("Experiment download error:", err)
+      alert("An error occurred during download.")
+    }
+  }
+
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this experiment?")) return
     const token = localStorage.getItem("access_token")
@@ -159,6 +189,9 @@ function DashboardPage() {
                 <button className="download-action-btn" onClick={() => handleDownload('public_goods')}>
                   PGG
                 </button>
+                <button className="download-action-btn" onClick={() => handleDownload('common_pool')}>
+                  CPR
+                </button>
                 <div className="download-divider"></div>
                 <button className="download-action-btn all-btn" onClick={() => handleDownload('all')}>
                   Download All (Combined)
@@ -171,6 +204,13 @@ function DashboardPage() {
               New Experiment
             </Link>
           </div>
+        </div>
+
+        <div className="retention-warning-banner">
+          <Database size={20} />
+          <span>
+            <strong>Please Note:</strong> All experiments and game results are saved for exactly <strong>14 days</strong> before being deleted. Please download your data files before they expire!
+          </span>
         </div>
 
         <div className="experiments-rows-container">
@@ -211,7 +251,8 @@ function DashboardPage() {
                   <span>{
                     (exp.prisoner_conditions?.length || 0) + 
                     (exp.ultimatum_conditions?.length || 0) + 
-                    (exp.public_goods_conditions?.length || 0)
+                    (exp.public_goods_conditions?.length || 0) +
+                    (exp.common_pool_conditions?.length || 0)
                   }</span>
                 </div>
               </div>
@@ -221,7 +262,11 @@ function DashboardPage() {
               <div className="col-actions">
                 <button className="row-action-btn view" onClick={() => navigate(`/experiments/${exp.id}`)}>
                   <Layers size={18} />
-                  View experiment
+                  View
+                </button>
+                <button className="row-action-btn download" onClick={() => handleDownloadExperiment(exp.id, exp.name)}>
+                  <FileSpreadsheet size={18} />
+                  CSV
                 </button>
                 <button className="row-action-btn delete" onClick={() => handleDelete(exp.id)}>
                   <Trash2 size={18} />
