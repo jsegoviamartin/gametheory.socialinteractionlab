@@ -12,21 +12,26 @@ from .serializers import (
     CustomCommonPoolSerializer
 )
 
+
+def run_old_data_cleanup():
+    try:
+        from game.exports import cleanup_old_data
+        cleanup_old_data()
+    except Exception as e:
+        import logging
+        logging.getLogger("django").error(f"Auto-cleanup error: {e}")
+
+
 class ExperimentViewSet(viewsets.ModelViewSet):
     serializer_class = CustomExperimentSerializer
 
     def get_permissions(self):
-        if self.action in ['lobby', 'retrieve']:
+        if self.action in ['lobby', 'retrieve', 'consent']:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        try:
-            from game.exports import cleanup_old_data
-            cleanup_old_data()
-        except Exception as e:
-            import logging
-            logging.getLogger("django").error(f"Auto-cleanup error: {e}")
+        run_old_data_cleanup()
 
         if self.action in ['lobby', 'retrieve']:
             return CustomExperiment.objects.all().order_by('-created_at')
@@ -34,6 +39,7 @@ class ExperimentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def lobby(self, request):
+        run_old_data_cleanup()
         experiments = CustomExperiment.objects.all().order_by('-created_at')
         serializer = self.get_serializer(experiments, many=True)
         return Response(serializer.data)
@@ -149,3 +155,26 @@ class ExperimentViewSet(viewsets.ModelViewSet):
             filename = f"my_{game_type}_data.csv"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+    @action(detail=True, methods=['get'])
+    def consent(self, request, pk=None):
+        experiment = self.get_object()
+        if hasattr(experiment, 'consent_form'):
+            from .serializers import ConsentFormSerializer
+            serializer = ConsentFormSerializer(experiment.consent_form)
+            return Response(serializer.data)
+        return Response({"error": "Consent form not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post', 'patch'])
+    def save_consent(self, request, pk=None):
+        experiment = self.get_object()
+        from .serializers import ConsentFormSerializer
+        if hasattr(experiment, 'consent_form'):
+            serializer = ConsentFormSerializer(experiment.consent_form, data=request.data, partial=True)
+        else:
+            serializer = ConsentFormSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save(experiment=experiment)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -14,8 +14,14 @@ function CustomExperimentHome() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchExperiment()
-  }, [id])
+    // Force consent check
+    const consentAccepted = sessionStorage.getItem(`consent_${id}`)
+    if (consentAccepted !== "accepted") {
+      navigate(`/experiments/${id}/consent`)
+    } else {
+      fetchExperiment()
+    }
+  }, [id, navigate])
 
   const fetchExperiment = async () => {
     try {

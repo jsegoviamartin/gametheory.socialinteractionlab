@@ -98,3 +98,34 @@ class CustomCommonPool(models.Model):
     punishment_value = models.FloatField(default=4.0)
     
     created_at = models.DateTimeField(auto_now_add=True)
+
+class ConsentForm(models.Model):
+    experiment = models.OneToOneField(CustomExperiment, on_delete=models.CASCADE, related_name='consent_form')
+    study_title = models.CharField(max_length=255)
+    purpose = models.TextField()
+    investigator = models.CharField(max_length=255)
+    institution = models.CharField(max_length=255)
+    contact_email = models.EmailField()
+    
+    ethics_committee = models.CharField(max_length=255, blank=True, null=True)
+    approval_number = models.CharField(max_length=255, blank=True, null=True)
+    
+    duration_minutes = models.IntegerField(default=0)
+    participation_type = models.CharField(max_length=50, default='voluntary')
+    
+    eligibility_criteria = models.JSONField(default=dict, blank=True, null=True)
+    
+    compensation_enabled = models.BooleanField(default=False)
+    compensation_type = models.CharField(max_length=50, blank=True, null=True)
+    compensation_description = models.TextField(blank=True, null=True)
+    
+    risks = models.TextField(blank=True, null=True)
+    benefits = models.TextField(blank=True, null=True)
+    
+    data_collected = models.TextField()
+    data_access = models.TextField()
+    post_experiment_survey = models.BooleanField(default=True)
+    storage_duration = models.CharField(max_length=50)
+    future_use = models.JSONField(default=dict, blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)

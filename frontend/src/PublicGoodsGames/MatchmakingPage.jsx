@@ -53,7 +53,7 @@ export default function PublicGoodsMatchmakingPage() {
         finalUrl += `&experiment_id=${experimentId}`
       }
       console.log("🚀 Navigating to game page:", finalUrl)
-      navigate(finalUrl)
+      navigate(finalUrl, { replace: true })
     }
   }, [status, matchId, mode, navigate, experimentId])
 

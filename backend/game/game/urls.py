@@ -23,6 +23,8 @@ urlpatterns = [
     path('api/common-pool/', include('common_pool.urls')),
     path('api/accounts/', include('accounts.urls')),
     path('api/custom-rooms/', include('custom_rooms.urls')),
+    path('api/auth/', include('dj_rest_auth.urls')),
+    path('password-reset-confirm/<uidb64>/<token>/', TemplateView.as_view(template_name='index.html'), name='password_reset_confirm'),
     path('account/two_factor/setup/', DebugSetupView.as_view(), name='setup'),
     path('', include(tf_urls)),
     path('', TemplateView.as_view(template_name='index.html')),

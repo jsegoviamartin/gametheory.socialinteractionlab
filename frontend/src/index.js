@@ -14,7 +14,10 @@ import DashboardPage from "./DashboardPage"
 import ExperimentForm from "./ExperimentForm"
 import ExperimentDetails from "./ExperimentDetails"
 import CustomExperimentLobby from "./CustomExperimentLobby"
+import ConsentFormParticipant from "./ConsentFormParticipant"
 import CustomExperimentHome from "./CustomExperimentHome"
+import PasswordResetRequest from "./PasswordResetRequest"
+import PasswordResetConfirm from "./PasswordResetConfirm"
 
 // Prisoner's Dilemma game
 import PrisonersApp from "./prisoners/PrisonersApp"
@@ -65,12 +68,17 @@ root.render(
         <Route path="/customized" element={<CustomExperimentLobby />} />
         <Route path="/join-custom" element={<CustomExperimentLobby />} />
         
+        {/* Dynamic Route for an Experiment Home */}
+        <Route path="/experiments/:id/consent" element={<ConsentFormParticipant />} />
+        <Route path="/experiments/:id/home" element={<CustomExperimentHome />} />
+        
         {/* Auth routes */}
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/forgot-password" element={<PasswordResetRequest />} />
+        <Route path="/password-reset-confirm/:uidb64/:token" element={<PasswordResetConfirm />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/create-experiment" element={<ExperimentForm />} />
         <Route path="/experiments/:id" element={<ExperimentDetails />} />
-        <Route path="/experiments/:id/home" element={<CustomExperimentHome />} />
 
         {/* Prisoner's Dilemma App */}
         <Route path="/prisoners/*" element={<PrisonersApp />} />

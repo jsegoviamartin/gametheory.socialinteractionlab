@@ -277,6 +277,38 @@ export default function CommonPoolResourceGamePage() {
   const matchId = params.get("match") || params.get("match_id")
   const mode = params.get("mode") || "online"
   const experimentId = params.get("experiment_id") || params.get("experiment")
+
+  useEffect(() => {
+    if (!matchId) return;
+    
+    const abandoned = sessionStorage.getItem(`abandoned_match_${matchId}`);
+    const isExternalBack = performance.getEntriesByType("navigation")[0]?.type === "back_forward";
+
+    if (abandoned || isExternalBack) {
+      const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/common-pool";
+      navigate(exitPath, { replace: true });
+      return;
+    }
+
+    sessionStorage.removeItem(`unmounting_match_${matchId}`);
+
+    const handleUnload = () => {
+      sessionStorage.setItem(`abandoned_match_${matchId}`, 'true');
+    };
+    window.addEventListener("beforeunload", handleUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      
+      sessionStorage.setItem(`unmounting_match_${matchId}`, 'true');
+      setTimeout(() => {
+        if (sessionStorage.getItem(`unmounting_match_${matchId}`)) {
+          sessionStorage.setItem(`abandoned_match_${matchId}`, 'true');
+        }
+      }, 50);
+    };
+  }, [matchId, experimentId, navigate]);
+
   const playerFingerprint = getPlayerFingerprint()
   const {
     players: wsPlayers,
@@ -328,11 +360,31 @@ export default function CommonPoolResourceGamePage() {
     setFishStock(maxFishStock)
   }, [matchId, maxFishStock])
 
+  useEffect(() => {
+    const handlePop = () => {
+      console.log("⬅️ Browser navigation → disconnect WS");
+      disconnect();
+      if (matchId) {
+        sessionStorage.setItem(`abandoned_match_${matchId}`, 'true');
+      }
+      const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/common-pool";
+      navigate(exitPath, { replace: true });
+    };
 
+    const handleUnload = () => {
+      console.log("❌ Page unload → disconnect WS");
+      disconnect();
+    };
 
+    window.addEventListener("popstate", handlePop);
+    // beforeunload is already handled above for setting abandoned state, but keeping this for socket disconnect consistency
+    window.addEventListener("beforeunload", handleUnload);
 
-
-  // ---------------------------------
+    return () => {
+      window.removeEventListener("popstate", handlePop);
+      window.removeEventListener("beforeunload", handleUnload);
+    };
+  }, [disconnect, navigate, experimentId, matchId]);  // ---------------------------------
   // Lobby → Countdown transition
   // ---------------------------------
   useEffect(() => {

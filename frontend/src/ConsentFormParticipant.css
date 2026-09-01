@@ -1,0 +1,254 @@
+.consent-page {
+  min-height: 100vh;
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.consent-page.loading {
+  align-items: center;
+  flex-direction: column;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(56, 189, 248, 0.2);
+  border-left-color: #38bdf8;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.consent-container {
+  width: 100%;
+  max-width: 800px;
+}
+
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #94a3b8;
+  text-decoration: none;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  transition: color 0.2s;
+}
+
+.back-link:hover {
+  color: #38bdf8;
+}
+
+.consent-card {
+  background: #1e293b;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+
+.consent-header {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.consent-icon {
+  color: #fff;
+  margin-bottom: 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+}
+
+.consent-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.consent-subtitle {
+  color: #e0f2fe;
+  font-size: 1rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.consent-content {
+  padding: 2rem;
+}
+
+.consent-section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #334155;
+}
+
+.consent-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.consent-section h2 {
+  font-size: 1.2rem;
+  color: #38bdf8;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.info-item {
+  background: #0f172a;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+}
+
+.info-item strong {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.info-block {
+  background: #0f172a;
+  padding: 1.2rem;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+}
+
+.info-block strong {
+  color: #38bdf8;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.info-block p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.criteria-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.criteria-list li {
+  margin-bottom: 0.25rem;
+}
+
+.platform-required {
+  background: rgba(220, 38, 38, 0.05);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.platform-required h2 {
+  color: #ef4444;
+}
+
+.required-text p {
+  color: #fca5a5;
+  line-height: 1.6;
+  margin-top: 0;
+}
+
+.consent-footer {
+  background: #0f172a;
+  padding: 2rem;
+  border-top: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.accept-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  cursor: pointer;
+  background: #1e293b;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  transition: border-color 0.2s;
+}
+
+.accept-checkbox:hover {
+  border-color: #38bdf8;
+}
+
+.accept-checkbox input {
+  margin-top: 0.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.accept-checkbox span {
+  color: #f1f5f9;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.accept-btn {
+  background: #334155;
+  color: #94a3b8;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.accept-btn.active {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
+}
+
+.accept-btn.active:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.6);
+}
+
+.accept-btn.active:active {
+  transform: translateY(0);
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Loader2, Wifi, WifiOff, Users } from "lucide-react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useSearchParams, useNavigate } from "react-router-dom"
 import { gameApi, getPlayerFingerprint } from "../services/gameApi"
 import "./MatchmakingPage.css"
 
@@ -48,22 +48,11 @@ export default function MatchmakingPage() {
         setStatus("found")
         setTimeout(() => {
           if (mountedRef.current) {
-            navigate(`/ultimatum/game?mode=online&match=${matchId}&type=${gameType}`)
+            navigate(`/ultimatum/game?mode=online&type=${gameType}&match=${matchId}`, { replace: true })
           }
         }, 1000)
         return
       }
-      
-      // if (pollAttempts.current >= maxPollAttempts) {
-      //   console.log("⏰ Timeout reached, proceeding to game anyway...")
-      //   setStatus("found")
-      //   setTimeout(() => {
-      //     if (mountedRef.current) {
-      //       navigate(`/ultimatum/game?mode=online&match=${matchId}`)
-      //     }
-      //   }, 1000)
-      //   return
-      // }
       
       const delay = Math.min(1000 + (Math.min(pollAttempts.current, 10) * 200), 5000)
       pollTimeoutRef.current = setTimeout(() => {
@@ -101,7 +90,7 @@ export default function MatchmakingPage() {
           setStatus("found")
           setTimeout(() => {
             if (mountedRef.current) {
-              navigate(`/ultimatum/game?mode=online&match=${matchData.match_id}&type=${gameType}`)
+              navigate(`/ultimatum/game?mode=online&type=${gameType}&match=${matchData.match_id}`, { replace: true })
             }
           }, 1500)
         } else if (matchData.status === "created_new_match" || matchData.status === "already_joined") {
@@ -124,8 +113,7 @@ export default function MatchmakingPage() {
     if (hasFetched.current) return
     hasFetched.current = true
     findMatch()
-  }, [checkMatchStatus, navigate, playerFingerprint, gameType])
-
+  }, [checkMatchStatus, navigate, playerFingerprint])
   const handleCancel = () => {
     console.log("❌ User cancelled matchmaking")
 

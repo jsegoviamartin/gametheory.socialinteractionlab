@@ -20,7 +20,7 @@
   font-size: 0.9rem;
   font-weight: 500;
   transition: all 0.2s ease;
-  margin-bottom: 2rem;
+  margin-bottom: 8rem;
 }
 
 .form-wizard.advanced {
@@ -105,7 +105,7 @@
   letter-spacing: 0.05em;
 }
 
-.input-field input, .input-field select {
+.input-field input, .input-field select, .input-field textarea {
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 1rem 1.25rem;
@@ -114,9 +114,10 @@
   font-size: 1rem;
   outline: none;
   transition: all 0.3s;
+  resize: vertical;
 }
 
-.input-field input:focus {
+.input-field input:focus, .input-field select:focus, .input-field textarea:focus {
   border-color: #38bdf8;
   box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
 }
@@ -264,6 +265,30 @@
   gap: 2rem;
 }
 
+.eligibility-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.eligibility-grid input, .eligibility-grid select {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.8rem 1rem;
+  border-radius: 0.75rem;
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.3s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.eligibility-grid input:focus, .eligibility-grid select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+}
+
 .toggle-group {
   display: flex;
   gap: 2rem;
@@ -326,6 +351,31 @@
 
 .primary-btn {
   flex: 1;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  color: #111827;
+  padding: 1.25rem 2.5rem;
+  border-radius: 1.25rem;
+  border: none;
+  font-weight: 800;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 25px rgba(56, 189, 248, 0.3);
+}
+
+.primary-btn:hover {
+  transform: translateY(-3px) scale(1.02); 
+  box-shadow: 0 15px 35px rgba(56, 189, 248, 0.4); 
+}
+
+.primary-btn:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+  transform: none !important; 
 }
 
 .secondary-btn {

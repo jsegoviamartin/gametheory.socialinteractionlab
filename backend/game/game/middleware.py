@@ -12,6 +12,8 @@ class CSRFExemptMiddleware(MiddlewareMixin):
             r'^/api/ultimatum/.*',
             r'^/api/prisoners/.*',
             r'^/api/the_game/.*',
+            r'^/api/auth/.*',
+            r'^/api/accounts/.*',
         ]
         
         path = request.path

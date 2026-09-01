@@ -19,6 +19,7 @@ function AuthPage() {
     username: "",
     email: "",
     password: "",
+    passwordConfirm: "",
   })
 
   const handleChange = (e) => {
@@ -35,6 +36,12 @@ function AuthPage() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+
+    if (!isLogin && formData.password !== formData.passwordConfirm) {
+      setError("Passwords do not match.")
+      setIsLoading(false)
+      return
+    }
 
     const endpoint = isLogin ? "/api/accounts/login/" : "/api/accounts/register/"
     const body = isLogin 
@@ -168,6 +175,20 @@ function AuthPage() {
                     required
                   />
                 </div>
+
+                {!isLogin && (
+                  <div className="input-group">
+                    <Lock className="input-icon" size={18} />
+                    <input
+                      type="password"
+                      name="passwordConfirm"
+                      placeholder="Confirm Password"
+                      value={formData.passwordConfirm}
+                      onChange={handleChange}
+                      required={!isLogin}
+                    />
+                  </div>
+                )}
               </>
             ) : (
               <div className="input-group">
@@ -206,6 +227,13 @@ function AuthPage() {
 
         {!mfaRequired && (
           <div className="auth-footer">
+            {isLogin && (
+              <div style={{ marginBottom: "1rem" }}>
+                <Link to="/forgot-password" style={{ color: "#3b82f6", textDecoration: "none", fontSize: "0.9rem" }}>
+                  Forgot Password?
+                </Link>
+              </div>
+            )}
             <button onClick={() => setIsLogin(!isLogin)} className="toggle-auth">
               {isLogin ? "Need an account? Sign Up" : "Already have an account? Log In"}
             </button>

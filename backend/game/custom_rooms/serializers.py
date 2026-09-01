@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import CustomExperiment, CustomPrisoner, CustomUltimatum, CustomPublicGoods, CustomCommonPool
+from .models import CustomExperiment, CustomPrisoner, CustomUltimatum, CustomPublicGoods, CustomCommonPool, ConsentForm
+
+class ConsentFormSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConsentForm
+        fields = '__all__'
+        read_only_fields = ('experiment',)
 
 class CustomPrisonerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,6 +36,7 @@ class CustomExperimentSerializer(serializers.ModelSerializer):
     ultimatum_conditions = CustomUltimatumSerializer(many=True, read_only=True)
     public_goods_conditions = CustomPublicGoodsSerializer(many=True, read_only=True)
     common_pool_conditions = CustomCommonPoolSerializer(many=True, read_only=True)
+    consent_form = ConsentFormSerializer(read_only=True)
 
     class Meta:
         model = CustomExperiment

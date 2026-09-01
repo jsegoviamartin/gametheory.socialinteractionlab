@@ -40,7 +40,7 @@ function CustomExperimentLobby() {
 
   const handleJoinSubmit = (exp) => {
     if (inputCode === exp.secret_code) {
-      navigate(`/experiments/${exp.id}/home`)
+      navigate(`/experiments/${exp.id}/consent`)
     } else {
       alert("Invalid Access Code. Please check with your researcher.")
     }

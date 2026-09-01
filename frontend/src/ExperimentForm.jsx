@@ -20,6 +20,81 @@ const Tooltip = ({ text }) => {
   );
 };
 
+const DEFAULT_CONDITION_DATA = {
+  name: "Condition 1",
+  room_name: "Prisoner's Dilemma",
+  p1_cc: 20, p2_cc: 20,
+  p1_cd: 0,  p2_cd: 30,
+  p1_dc: 30, p2_dc: 0,
+  p1_dd: 10, p2_dd: 10,
+  prisoner_rounds: 25,
+  endowment: 100,
+  ultimatum_rounds: 10,
+  ultimatum_game_type: "iterative",
+  room_type: "basic",
+  pg_endowment: 20,
+  multiplier: 1.6,
+  pg_rounds: 10,
+  reward_cost: 4,
+  reward_value: 12,
+  punishment_cost: 4,
+  punishment_value: 12,
+  cpr_initial_fish_stock: 100,
+  cpr_max_fish_stock: 100,
+  cpr_max_extraction: 10,
+  cpr_final_bonus_multiplier: 0.4,
+  cpr_rounds: 20,
+  cpr_reward_cost: 1.0,
+  cpr_reward_value: 4.0,
+  cpr_punishment_cost: 1.0,
+  cpr_punishment_value: 4.0
+}
+
+const formatConditionParams = (cond, gameType) => {
+  let params = { condition_name: cond.name }
+  if (gameType === "prisoner") {
+    params = { ...params, 
+      room_name: cond.room_name, 
+      p1_cc: cond.p1_cc, p2_cc: cond.p2_cc,
+      p1_cd: cond.p1_cd, p2_cd: cond.p2_cd,
+      p1_dc: cond.p1_dc, p2_dc: cond.p2_dc,
+      p1_dd: cond.p1_dd, p2_dd: cond.p2_dd, 
+      rounds: cond.prisoner_rounds 
+    }
+  } else if (gameType === "ultimatum") {
+    params = { ...params, 
+      endowment: cond.endowment, 
+      rounds: cond.ultimatum_rounds,
+      game_type: cond.ultimatum_game_type
+    }
+  } else if (gameType === "public_goods") {
+    params = { ...params, 
+      room_type: cond.room_type, 
+      endowment: cond.pg_endowment, 
+      multiplier: cond.multiplier, 
+      rounds: cond.pg_rounds,
+      reward_cost: cond.reward_cost,
+      reward_value: cond.reward_value,
+      punishment_cost: cond.punishment_cost,
+      punishment_value: cond.punishment_value
+    }
+  } else {
+    params = { ...params, 
+      room_type: cond.room_type, 
+      initial_fish_stock: cond.cpr_initial_fish_stock,
+      max_fish_stock: cond.cpr_max_fish_stock,
+      max_extraction: cond.cpr_max_extraction,
+      final_bonus_multiplier: cond.cpr_final_bonus_multiplier,
+      rounds: cond.cpr_rounds,
+      reward_cost: cond.cpr_reward_cost,
+      reward_value: cond.cpr_reward_value,
+      punishment_cost: cond.cpr_punishment_cost,
+      punishment_value: cond.cpr_punishment_value
+    }
+  }
+  return params;
+}
+
 function ExperimentForm() {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
@@ -29,10 +104,23 @@ function ExperimentForm() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [experimentId, setExperimentId] = useState(null)
 
+  
+  const [consentData, setConsentData] = useState({
+    study_title: "", purpose: "", investigator: "", institution: "", contact_email: "",
+    ethics_committee: "", approval_number: "", duration_minutes: 15, participation_type: "voluntary",
+    eligibility_criteria: { min_age: "", countries: "", language: "", other: "" },
+    compensation_enabled: false, compensation_type: "None", compensation_description: "",
+    risks: "", benefits: "", data_collected: "", data_access: "", post_experiment_survey: true,
+    storage_duration: "1 year", future_use: { research: false, collaborators: false, public: false, educational: false, commercial: false }
+  })
+
   const [expData, setExpData] = useState({
     name: "",
     game_type: "prisoner",
   })
+
+  const [isCustomStorage, setIsCustomStorage] = useState(false)
+  const [isCustomCountry, setIsCustomCountry] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -61,7 +149,21 @@ function ExperimentForm() {
       })
       if (resp.ok) {
         const data = await resp.json()
-        setExpData({ name: data.name, game_type: data.game_type })
+        setExpData({ name: data.name, game_type: data.game_type });
+        try {
+          const cResp = await fetch(`/api/custom-rooms/experiments/${id}/consent/`);
+          if (cResp.ok) {
+            const cData = await cResp.json();
+            setConsentData(cData);
+            if (cData.storage_duration && !["1 year", "5 years", "10 years", "Indefinitely"].includes(cData.storage_duration)) {
+              setIsCustomStorage(true);
+            }
+            if (cData.eligibility_criteria?.countries && !["", "US", "UK", "EU", "Canada", "Australia", "India", "Germany", "France", "Spain", "Italy", "China", "Japan", "Brazil"].includes(cData.eligibility_criteria.countries)) {
+              setIsCustomCountry(true);
+            }
+          }
+        } catch (e) {}
+
         
         if (isEditing) {
           const conditions = data.prisoner_conditions?.[0] || data.ultimatum_conditions?.[0] || data.public_goods_conditions?.[0] || data.common_pool_conditions?.[0]
@@ -100,35 +202,8 @@ function ExperimentForm() {
     }
   }
 
-  const [conditionData, setConditionData] = useState({
-    name: "Condition 1",
-    room_name: "Prisoner's Dilemma",
-    p1_cc: 20, p2_cc: 20,
-    p1_cd: 0,  p2_cd: 30,
-    p1_dc: 30, p2_dc: 0,
-    p1_dd: 10, p2_dd: 10,
-    prisoner_rounds: 25,
-    endowment: 100,
-    ultimatum_rounds: 10,
-    ultimatum_game_type: "iterative",
-    room_type: "basic",
-    pg_endowment: 20,
-    multiplier: 1.6,
-    pg_rounds: 10,
-    reward_cost: 4,
-    reward_value: 12,
-    punishment_cost: 4,
-    punishment_value: 12,
-    cpr_initial_fish_stock: 100,
-    cpr_max_fish_stock: 100,
-    cpr_max_extraction: 10,
-    cpr_final_bonus_multiplier: 0.4,
-    cpr_rounds: 20,
-    cpr_reward_cost: 1.0,
-    cpr_reward_value: 4.0,
-    cpr_punishment_cost: 1.0,
-    cpr_punishment_value: 4.0
-  })
+  const [conditionData, setConditionData] = useState(DEFAULT_CONDITION_DATA)
+  const [conditionsList, setConditionsList] = useState([])
 
   const applyPreset = (game) => {
     if (game === 'pd') {
@@ -177,7 +252,7 @@ function ExperimentForm() {
     setStep(step + 1)
   }
 
-  const handleCreate = async () => {
+  const handleCreate = async (addAnother = false) => {
     setIsLoading(true)
     setError("")
     const token = localStorage.getItem("access_token")
@@ -205,7 +280,7 @@ function ExperimentForm() {
         }
       }
   
-      // Check for duplicate condition name and dynamic numbering if appending
+      // Check for duplicate condition name in backend if edit mode
       if (activeExpId) {
         const checkResp = await fetch(`/api/custom-rooms/experiments/${activeExpId}/`, {
           headers: { "Authorization": `Bearer ${token}` }
@@ -227,78 +302,45 @@ function ExperimentForm() {
         }
       }
 
-      if (isEditMode) {
-        await fetch(`/api/custom-rooms/experiments/${experimentId}/`, {
+      const finalConditions = [...conditionsList];
+      const existingIdx = finalConditions.findIndex(c => c.name.toLowerCase() === conditionData.name.toLowerCase());
+      if (existingIdx >= 0) {
+        finalConditions[existingIdx] = conditionData;
+      } else {
+        finalConditions.push(conditionData);
+      }
+      setConditionsList(finalConditions);
+
+      if (addAnother) {
+        const match = conditionData.name.match(/\d+$/);
+        const nextNum = match ? parseInt(match[0]) + 1 : finalConditions.length + 1;
+        setConditionData({ ...DEFAULT_CONDITION_DATA, name: `Condition ${nextNum}` })
+        setIsLoading(false);
+        return;
+      }
+
+      if (activeExpId) {
+        // Save experiment metadata
+        await fetch(`/api/custom-rooms/experiments/${activeExpId}/`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify(expData),
-        })
-      } else if (!activeExpId) {
-        const expResp = await fetch("/api/custom-rooms/experiments/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify(expData),
-        })
-        const expJson = await expResp.json()
-        if (!expResp.ok) {
-          throw new Error(expJson.name || expJson.detail || "Could not create experiment")
-        }
-        activeExpId = expJson.id
-        setCreatedCode(expJson.secret_code)
-      }
+        });
 
-      let params = { condition_name: conditionData.name }
-      if (expData.game_type === "prisoner") {
-        params = { ...params, 
-          room_name: conditionData.room_name, 
-          p1_cc: conditionData.p1_cc, p2_cc: conditionData.p2_cc,
-          p1_cd: conditionData.p1_cd, p2_cd: conditionData.p2_cd,
-          p1_dc: conditionData.p1_dc, p2_dc: conditionData.p2_dc,
-          p1_dd: conditionData.p1_dd, p2_dd: conditionData.p2_dd, 
-          rounds: conditionData.prisoner_rounds 
+        // Save conditions
+        for (const cond of finalConditions) {
+          const params = formatConditionParams(cond, expData.game_type);
+          await fetch(`/api/custom-rooms/experiments/${activeExpId}/add_condition/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify(params),
+          });
         }
-      } else if (expData.game_type === "ultimatum") {
-        params = { ...params, 
-          endowment: conditionData.endowment, 
-          rounds: conditionData.ultimatum_rounds,
-          game_type: conditionData.ultimatum_game_type
-        }
-      } else if (expData.game_type === "public_goods") {
-        params = { ...params, 
-          room_type: conditionData.room_type, 
-          endowment: conditionData.pg_endowment, 
-          multiplier: conditionData.multiplier, 
-          rounds: conditionData.pg_rounds,
-          reward_cost: conditionData.reward_cost,
-          reward_value: conditionData.reward_value,
-          punishment_cost: conditionData.punishment_cost,
-          punishment_value: conditionData.punishment_value
-        }
+        navigate(`/experiments/${activeExpId}`);
       } else {
-        params = { ...params, 
-          room_type: conditionData.room_type, 
-          initial_fish_stock: conditionData.cpr_initial_fish_stock,
-          max_fish_stock: conditionData.cpr_max_fish_stock,
-          max_extraction: conditionData.cpr_max_extraction,
-          final_bonus_multiplier: conditionData.cpr_final_bonus_multiplier,
-          rounds: conditionData.cpr_rounds,
-          reward_cost: conditionData.cpr_reward_cost,
-          reward_value: conditionData.cpr_reward_value,
-          punishment_cost: conditionData.cpr_punishment_cost,
-          punishment_value: conditionData.cpr_punishment_value
-        }
+        setStep(3);
       }
 
-      await fetch(`/api/custom-rooms/experiments/${activeExpId}/add_condition/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify(params),
-      })
-
-      if (isEditMode || (experimentId && !createdCode)) {
-        navigate(`/experiments/${activeExpId}`)
-      }
-      // If we created a NEW one (with a code), just let it stay so setCreatedCode renders the success view
     } catch (err) {
       setError(getErrorMessage(err.message))
     } finally {
@@ -306,7 +348,89 @@ function ExperimentForm() {
     }
   }
 
-  if (createdCode) {
+  const handleSaveConsent = async () => {
+    setIsLoading(true)
+    setError("")
+    const token = localStorage.getItem("access_token")
+    try {
+      if (!consentData.study_title || !consentData.purpose || !consentData.investigator || !consentData.institution || !consentData.contact_email || !consentData.duration_minutes || !consentData.data_collected || !consentData.data_access) {
+        throw new Error("Please fill out all required fields (marked with *).")
+      }
+
+      if (!consentData.storage_duration) {
+        throw new Error("Please specify the storage duration.")
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(consentData.contact_email)) {
+        throw new Error("Please enter a valid contact email.")
+      }
+      
+      let activeExpId = experimentId;
+
+      if (!activeExpId) {
+        const expResp = await fetch("/api/custom-rooms/experiments/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify(expData),
+        });
+        const expJson = await expResp.json();
+        if (!expResp.ok) {
+          throw new Error(expJson.name || expJson.detail || "Could not create experiment");
+        }
+        activeExpId = expJson.id;
+        setCreatedCode(expJson.secret_code);
+        setExperimentId(activeExpId);
+      }
+
+      // Add conditions to backend
+      for (const cond of conditionsList) {
+        const params = formatConditionParams(cond, expData.game_type);
+        const addCondResp = await fetch(`/api/custom-rooms/experiments/${activeExpId}/add_condition/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify(params),
+        });
+        if (!addCondResp.ok) {
+          const errJson = await addCondResp.json();
+          throw new Error(errJson.detail || "Could not add condition");
+        }
+      }
+
+      const resp = await fetch(`/api/custom-rooms/experiments/${activeExpId}/save_consent/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify(consentData)
+      })
+      if (!resp.ok) {
+        let errorMsg = "Failed to save consent form";
+        try {
+          const errData = await resp.json();
+          const firstKey = Object.keys(errData)[0];
+          if (firstKey && Array.isArray(errData[firstKey])) {
+            errorMsg = `${firstKey}: ${errData[firstKey][0]}`;
+          } else if (errData.error) {
+            errorMsg = errData.error;
+          } else if (typeof errData === 'string') {
+            errorMsg = errData;
+          }
+        } catch (e) {}
+        throw new Error(errorMsg);
+      }
+      
+      setExperimentId(activeExpId)
+
+      if (isEditMode || (experimentId && !createdCode)) {
+        navigate(`/experiments/${activeExpId}`)
+      }
+      setStep(4);
+    } catch (err) {
+      setError(getErrorMessage(err.message))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (step === 4 && createdCode) {
     return (
       <div className="form-page">
         <div className="success-container">
@@ -377,7 +501,7 @@ function ExperimentForm() {
               <ArrowLeft size={18} style={{ transform: 'rotate(180deg)' }} />
             </button>
           </div>
-        ) : (
+        ) : step === 2 ? (
           <div className="wizard-step">
             <h1 className="step-title">Condition Rules</h1>
             
@@ -606,8 +730,217 @@ function ExperimentForm() {
 
             <div className="wizard-actions">
               <button className="secondary-btn" onClick={() => setStep(1)}>Back</button>
-              <button className="primary-btn" onClick={handleCreate} disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save"}
+              <button className="secondary-btn" onClick={() => handleCreate(true)} disabled={isLoading}>
+                {isLoading ? "Saving..." : "Save & Add Another"}
+              </button>
+              <button className="primary-btn" onClick={() => handleCreate(false)} disabled={isLoading}>
+                {isLoading ? "Saving..." : (experimentId ? "Finish & Save" : "Next: Consent Form")}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        
+        {step === 3 && (
+          <div className="wizard-step consent-step">
+            <h1 className="step-title">Consent Form Builder</h1>
+            <p className="step-subtitle">This form will be shown to participants before they can join the experiment.</p>
+            
+            <h4 className="sub-title">Study Information</h4>
+            <div className="input-field">
+              <label>Study Title *</label>
+              <input type="text" value={consentData.study_title} onChange={e => setConsentData({...consentData, study_title: e.target.value})} />
+            </div>
+            <div className="input-field">
+              <label>Purpose of the study *</label>
+              <textarea value={consentData.purpose} onChange={e => setConsentData({...consentData, purpose: e.target.value})} rows="3" placeholder="Briefly describe the purpose..."></textarea>
+            </div>
+            
+            <div className="param-split">
+              <div className="input-field">
+                <label>Principal Investigator *</label>
+                <input type="text" value={consentData.investigator} onChange={e => setConsentData({...consentData, investigator: e.target.value})} />
+              </div>
+              <div className="input-field">
+                <label>Institution / Organization *</label>
+                <input type="text" value={consentData.institution} onChange={e => setConsentData({...consentData, institution: e.target.value})} />
+              </div>
+            </div>
+            <div className="input-field">
+              <label>Contact Email *</label>
+              <input type="email" value={consentData.contact_email} onChange={e => setConsentData({...consentData, contact_email: e.target.value})} />
+            </div>
+            
+            <div className="param-split">
+              <div className="input-field">
+                <label>Ethics Committee (Optional)</label>
+                <input type="text" value={consentData.ethics_committee} onChange={e => setConsentData({...consentData, ethics_committee: e.target.value})} />
+              </div>
+              <div className="input-field">
+                <label>Approval Number (Optional)</label>
+                <input type="text" value={consentData.approval_number} onChange={e => setConsentData({...consentData, approval_number: e.target.value})} />
+              </div>
+            </div>
+
+            <h4 className="sub-title">Participation & Eligibility</h4>
+            <div className="param-split">
+              <div className="input-field">
+                <label>Estimated Duration (minutes) *</label>
+                <input type="number" value={consentData.duration_minutes} onChange={e => setConsentData({...consentData, duration_minutes: parseInt(e.target.value)})} />
+              </div>
+              <div className="input-field">
+                <label>Participation Type *</label>
+                <select value={consentData.participation_type} onChange={e => setConsentData({...consentData, participation_type: e.target.value})}>
+                  <option value="voluntary">Voluntary</option>
+                  <option value="mandatory">Mandatory (course req.)</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="input-field checkbox-group">
+              <label>Eligibility Criteria</label>
+              <div className="eligibility-grid">
+                <input type="text" placeholder="Min Age (e.g. 18)" value={consentData.eligibility_criteria.min_age} onChange={e => setConsentData({...consentData, eligibility_criteria: {...consentData.eligibility_criteria, min_age: e.target.value}})} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <select 
+                    value={isCustomCountry ? "Specific" : consentData.eligibility_criteria.countries} 
+                    onChange={e => {
+                      if (e.target.value === "Specific") {
+                        setIsCustomCountry(true)
+                        setConsentData({...consentData, eligibility_criteria: {...consentData.eligibility_criteria, countries: ""}})
+                      } else {
+                        setIsCustomCountry(false)
+                        setConsentData({...consentData, eligibility_criteria: {...consentData.eligibility_criteria, countries: e.target.value}})
+                      }
+                    }}
+                  >
+                    <option value="">Any Country</option>
+                    <option value="US">United States</option>
+                    <option value="UK">United Kingdom</option>
+                    <option value="EU">European Union</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Australia">Australia</option>
+                    <option value="India">India</option>
+                    <option value="Germany">Germany</option>
+                    <option value="France">France</option>
+                    <option value="Spain">Spain</option>
+                    <option value="Italy">Italy</option>
+                    <option value="China">China</option>
+                    <option value="Japan">Japan</option>
+                    <option value="Brazil">Brazil</option>
+                    <option value="Specific">Specific...</option>
+                  </select>
+                  {isCustomCountry && (
+                    <input 
+                      type="text" 
+                      placeholder="Enter country..." 
+                      value={consentData.eligibility_criteria.countries} 
+                      onChange={e => setConsentData({...consentData, eligibility_criteria: {...consentData.eligibility_criteria, countries: e.target.value}})} 
+                    />
+                  )}
+                </div>
+                <input type="text" placeholder="Language (e.g. English)" value={consentData.eligibility_criteria.language} onChange={e => setConsentData({...consentData, eligibility_criteria: {...consentData.eligibility_criteria, language: e.target.value}})} />
+                <input type="text" placeholder="Other Requirements" value={consentData.eligibility_criteria.other} onChange={e => setConsentData({...consentData, eligibility_criteria: {...consentData.eligibility_criteria, other: e.target.value}})} />
+              </div>
+            </div>
+
+            <h4 className="sub-title">Compensation & Risks</h4>
+            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem'}}>
+              <input type="checkbox" id="comp_enabled" checked={consentData.compensation_enabled} onChange={e => setConsentData({...consentData, compensation_enabled: e.target.checked})} />
+              <label htmlFor="comp_enabled" style={{marginBottom: 0}}>Include compensation section</label>
+            </div>
+            
+            {consentData.compensation_enabled && (
+              <>
+                <div className="input-field">
+                  <label>Compensation Type</label>
+                  <select value={consentData.compensation_type} onChange={e => setConsentData({...consentData, compensation_type: e.target.value})}>
+                    <option value="None">None</option>
+                    <option value="Fixed payment">Fixed payment</option>
+                    <option value="Performance-based">Performance-based payment</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="input-field">
+                  <label>Description</label>
+                  <textarea value={consentData.compensation_description} onChange={e => setConsentData({...consentData, compensation_description: e.target.value})} rows="2"></textarea>
+                </div>
+              </>
+            )}
+
+            <div className="param-split">
+              <div className="input-field">
+                <label>Risks</label>
+                <textarea value={consentData.risks} onChange={e => setConsentData({...consentData, risks: e.target.value})} rows="2" placeholder="Describe any risks..."></textarea>
+              </div>
+              <div className="input-field">
+                <label>Benefits</label>
+                <textarea value={consentData.benefits} onChange={e => setConsentData({...consentData, benefits: e.target.value})} rows="2" placeholder="Describe any benefits..."></textarea>
+              </div>
+            </div>
+
+            <h4 className="sub-title">Data Collection & Storage</h4>
+            <div className="input-field">
+              <label>What data will be collected? *</label>
+              <textarea value={consentData.data_collected} onChange={e => setConsentData({...consentData, data_collected: e.target.value})} rows="2"></textarea>
+            </div>
+            <div className="input-field">
+              <label>Who will have access? *</label>
+              <textarea value={consentData.data_access} onChange={e => setConsentData({...consentData, data_access: e.target.value})} rows="2"></textarea>
+            </div>
+
+            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem'}}>
+              <input type="checkbox" id="post_survey" checked={consentData.post_experiment_survey} onChange={e => setConsentData({...consentData, post_experiment_survey: e.target.checked})} />
+              <label htmlFor="post_survey" style={{marginBottom: 0}}>Include optional demographic questionnaire</label>
+            </div>
+
+            <div className="param-split">
+              <div className="input-field">
+                <label>Storage Duration</label>
+                <select 
+                  value={isCustomStorage ? "Custom" : consentData.storage_duration} 
+                  onChange={e => {
+                    if (e.target.value === "Custom") {
+                      setIsCustomStorage(true)
+                      setConsentData({...consentData, storage_duration: ""})
+                    } else {
+                      setIsCustomStorage(false)
+                      setConsentData({...consentData, storage_duration: e.target.value})
+                    }
+                  }}
+                >
+                  <option value="1 year">1 year</option>
+                  <option value="5 years">5 years</option>
+                  <option value="10 years">10 years</option>
+                  <option value="Indefinitely">Indefinitely</option>
+                  <option value="Custom">Custom</option>
+                </select>
+                {isCustomStorage && (
+                  <input 
+                    type="text" 
+                    placeholder="Enter custom duration..." 
+                    value={consentData.storage_duration} 
+                    onChange={e => setConsentData({...consentData, storage_duration: e.target.value})} 
+                    style={{marginTop: "0.5rem"}}
+                  />
+                )}
+              </div>
+            </div>
+
+            <h4 className="sub-title">Future Use of Data</h4>
+            <div className="checkbox-grid" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem'}}>
+              <label><input type="checkbox" checked={consentData.future_use.research} onChange={e => setConsentData({...consentData, future_use: {...consentData.future_use, research: e.target.checked}})} /> Allow future research use</label>
+              <label><input type="checkbox" checked={consentData.future_use.collaborators} onChange={e => setConsentData({...consentData, future_use: {...consentData.future_use, collaborators: e.target.checked}})} /> Allow sharing with collaborators</label>
+              <label><input type="checkbox" checked={consentData.future_use.public} onChange={e => setConsentData({...consentData, future_use: {...consentData.future_use, public: e.target.checked}})} /> Allow public release (anonymized)</label>
+              <label><input type="checkbox" checked={consentData.future_use.educational} onChange={e => setConsentData({...consentData, future_use: {...consentData.future_use, educational: e.target.checked}})} /> Allow educational use</label>
+              <label><input type="checkbox" checked={consentData.future_use.commercial} onChange={e => setConsentData({...consentData, future_use: {...consentData.future_use, commercial: e.target.checked}})} /> Allow commercial collaborations</label>
+            </div>
+
+            <div className="wizard-actions">
+              <button className="secondary-btn" onClick={() => setStep(2)}>Back</button>
+              <button className="primary-btn" onClick={handleSaveConsent} disabled={isLoading}>
+                {isLoading ? "Saving..." : "Finish & Save"}
               </button>
             </div>
           </div>
