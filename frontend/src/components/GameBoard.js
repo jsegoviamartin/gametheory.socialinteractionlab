@@ -52,6 +52,7 @@ function GameBoard({ playerFingerprint }) {
   const [surveySubmitted, setSurveySubmitted] = useState(false)
   const socketRef = useRef(null)
   const timedOutRef = useRef(false)
+  const leaveSentRef = useRef(false)
   const [modal, setModal] = useState({ open: false, title: "", msg: "", redirectTo: "/prisoners" })
   const [roundPhase, setRoundPhase] = useState("choosing") // 'choosing', 'results', 'transition'
   const [lastRoundResult, setLastRoundResult] = useState(null)
@@ -82,6 +83,35 @@ function GameBoard({ playerFingerprint }) {
 
     const socket = new WebSocket(wsUrl)
     socketRef.current = socket
+    leaveSentRef.current = false
+
+    const sendLeave = () => {
+      if (leaveSentRef.current || timedOutRef.current) {
+        return
+      }
+
+      leaveSentRef.current = true
+
+      if (socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.send(
+            JSON.stringify({
+              action: "leave",
+              player_fingerprint: fingerprint,
+            }),
+          )
+        } catch (error) {
+          console.error("Failed to notify server about leaving match:", error)
+        }
+      }
+    }
+
+    const handlePageExit = () => {
+      sendLeave()
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close(4001, "Client left match")
+      }
+    }
 
     socket.onopen = () => {
       console.log("WebSocket connected")
@@ -151,7 +181,17 @@ function GameBoard({ playerFingerprint }) {
       console.error("WebSocket error:", error)
     }
 
+    window.addEventListener("pagehide", handlePageExit)
+    window.addEventListener("beforeunload", handlePageExit)
+
     return () => {
+      window.removeEventListener("pagehide", handlePageExit)
+      window.removeEventListener("beforeunload", handlePageExit)
+
+      if (document.visibilityState === "hidden") {
+        sendLeave()
+      }
+
       if (socket) {
         socket.close()
       }

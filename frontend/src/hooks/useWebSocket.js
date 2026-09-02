@@ -7,6 +7,8 @@ const WS_BASE_URL =
     ? `wss://${window.location.hostname}`
     : `ws://${window.location.hostname}`;
 
+const TERMINAL_CLOSE_CODES = new Set([4001, 4004])
+
 export const useWebSocket = (matchId, playerFingerprint) => {
   const [socket, setSocket] = useState(null)
   const [gameState, setGameState] = useState(null)
@@ -20,6 +22,7 @@ export const useWebSocket = (matchId, playerFingerprint) => {
   const reconnectAttemptsRef = useRef(0)
   const connectionRef = useRef(null)
   const socketRef = useRef(null)
+  const leaveSentRef = useRef(false)
   const maxReconnectAttempts = 5
 
   const log = (...args) => {
@@ -65,6 +68,7 @@ export const useWebSocket = (matchId, playerFingerprint) => {
       setConnectionStatus("connecting")
 
       const ws = new WebSocket(wsUrl)
+      leaveSentRef.current = false
       log("🔎 WebSocket instance created, socket readyState =", ws.readyState)
 
       ws.onopen = () => {
@@ -192,6 +196,16 @@ export const useWebSocket = (matchId, playerFingerprint) => {
           return
         }
 
+        if (TERMINAL_CLOSE_CODES.has(event.code)) {
+          const reason = event.code === 4004 ? "match_not_found" : "Player disconnected"
+          log("🚫 Terminal WebSocket close - ending match:", reason)
+          setMatchTerminated(true)
+          setTerminationReason(reason)
+          setError(null)
+          reconnectAttemptsRef.current = maxReconnectAttempts
+          return
+        }
+
         if (event.code === 1000 || reconnectAttemptsRef.current >= maxReconnectAttempts) {
           log("🚫 Not attempting to reconnect")
           return
@@ -237,9 +251,17 @@ export const useWebSocket = (matchId, playerFingerprint) => {
     connectionRef.current = "disconnected"
     reconnectAttemptsRef.current = maxReconnectAttempts
 
-    if (socketRef.current && socketRef.current.readyState !== WebSocket.CLOSED) {
-      socketRef.current.send(JSON.stringify({ action: "leave", player_fingerprint: playerFingerprint }))
-      socketRef.current.close(4001, "Client left match")
+    const currentSocket = socketRef.current
+    if (currentSocket && currentSocket.readyState === WebSocket.OPEN && !leaveSentRef.current) {
+      leaveSentRef.current = true
+      currentSocket.send(JSON.stringify({ action: "leave", player_fingerprint: playerFingerprint }))
+    }
+
+    if (
+      currentSocket &&
+      (currentSocket.readyState === WebSocket.OPEN || currentSocket.readyState === WebSocket.CONNECTING)
+    ) {
+      currentSocket.close(4001, "Client left match")
     }
 
     socketRef.current = null

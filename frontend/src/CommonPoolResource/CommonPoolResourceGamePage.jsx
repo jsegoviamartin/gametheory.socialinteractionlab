@@ -319,7 +319,8 @@ export default function CommonPoolResourceGamePage() {
     gameParams,
     fishStock: wsFishStock,
     error,
-    disconnect
+    disconnect,
+    terminateMatch
   } = useWebSocketCPR(matchId, playerFingerprint)
 
   // Use dynamic parameters from the laboratory
@@ -363,10 +364,10 @@ export default function CommonPoolResourceGamePage() {
   useEffect(() => {
     const handlePop = () => {
       console.log("⬅️ Browser navigation → disconnect WS");
-      disconnect();
       if (matchId) {
         sessionStorage.setItem(`abandoned_match_${matchId}`, 'true');
       }
+      terminateMatch(`Player ${playerIndex || ""} left the game.`);
       const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/common-pool";
       navigate(exitPath, { replace: true });
     };
@@ -384,7 +385,7 @@ export default function CommonPoolResourceGamePage() {
       window.removeEventListener("popstate", handlePop);
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, [disconnect, navigate, experimentId, matchId]);  // ---------------------------------
+  }, [disconnect, navigate, experimentId, matchId, playerIndex, terminateMatch]);  // ---------------------------------
   // Lobby → Countdown transition
   // ---------------------------------
   useEffect(() => {
@@ -425,22 +426,18 @@ export default function CommonPoolResourceGamePage() {
       const reason = `⏱️ Time is up in ${phase} phase! Game ended.`;
       setGameEndedReason(reason);
 
-      // Notify others if online
-      if (mode === "online" && socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-          action: "terminate",
-          reason: reason
-        }));
+      if (mode === "online") {
+        terminateMatch(reason);
+      } else {
+        disconnect();
       }
-
-      disconnect();
       setPhase("finished");
       return;
     }
 
     const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000)
     return () => clearTimeout(timer)
-  }, [phase, timeLeft, navigate, matchId, mode, socket, disconnect])
+  }, [phase, timeLeft, navigate, matchId, mode, socket, disconnect, terminateMatch])
 
   const handleSliderChange = (e) => setCurrentContribution(Number(e.target.value))
 
@@ -764,13 +761,11 @@ export default function CommonPoolResourceGamePage() {
           <button
             className="cpr-leave-game-btn"
             onClick={() => {
-              if (mode === "online" && socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                  action: "terminate",
-                  reason: `Player ${playerIndex} left the game.`
-                }));
+              if (mode === "online") {
+                terminateMatch(`Player ${playerIndex || ""} left the game.`);
+              } else {
+                disconnect();
               }
-              disconnect();
               const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/common-pool";
               navigate(exitPath);
             }}

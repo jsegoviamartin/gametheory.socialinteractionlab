@@ -67,11 +67,13 @@ services:
   pgadmin:
     image: dpage/pgadmin4:7
     container_name: pgadmin
+    env_file:
+      - .env
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-    expose:
-      - "80"
+    ports:
+      - "127.0.0.1:8081:80"
     depends_on:
       - db
     networks:

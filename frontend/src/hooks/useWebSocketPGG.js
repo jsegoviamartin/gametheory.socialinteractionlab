@@ -26,11 +26,17 @@ export const useWebSocketPGG = (matchId, playerFingerprint) => {
   });
 
   const connectionRef = useRef(null);
-  const didConnect = useRef(false);
+  const socketRef = useRef(null);
+  const cleanupTimeoutRef = useRef(null);
+  const terminationSentRef = useRef(false);
 
   // ----- CONNECT -----
   const connect = useCallback(() => {
     if (!matchId || !playerFingerprint) return;
+    if (cleanupTimeoutRef.current) {
+      clearTimeout(cleanupTimeoutRef.current);
+      cleanupTimeoutRef.current = null;
+    }
     if (connectionRef.current === "connecting" || connectionRef.current === "connected") return;
 
     const wsUrl = `${WS_BASE_URL}/ws/public-goods/${matchId}/`;
@@ -38,6 +44,8 @@ export const useWebSocketPGG = (matchId, playerFingerprint) => {
     setConnectionStatus("connecting");
 
     const ws = new WebSocket(wsUrl);
+    socketRef.current = ws;
+    terminationSentRef.current = false;
 
     ws.onopen = () => {
       connectionRef.current = "connected";
@@ -121,7 +129,10 @@ export const useWebSocketPGG = (matchId, playerFingerprint) => {
     ws.onclose = (event) => {
       console.warn("⚡ WS CLOSED", event);
       connectionRef.current = "disconnected";
-      setSocket(null);
+      if (socketRef.current === ws) {
+        socketRef.current = null;
+        setSocket(null);
+      }
 
       if (event.code === 4000 || event.code === 1000) {
         console.log("🟢 Normal client disconnect");
@@ -139,27 +150,47 @@ export const useWebSocketPGG = (matchId, playerFingerprint) => {
       setConnectionStatus("error");
     };
 
-
     setSocket(ws);
   }, [matchId, playerFingerprint]);
 
   // ----- DISCONNECT -----
   const disconnect = useCallback(() => {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.close(4000, "Client disconnected");
+    const currentSocket = socketRef.current;
+    if (
+      currentSocket &&
+      (currentSocket.readyState === WebSocket.OPEN || currentSocket.readyState === WebSocket.CONNECTING)
+    ) {
+      currentSocket.close(4000, "Client disconnected");
     }
+    socketRef.current = null;
     setSocket(null);
     setConnectionStatus("disconnected");
     connectionRef.current = "disconnected";
-  }, [socket]);
+  }, []);
+
+  const terminateMatch = useCallback((reason = "A player left the game.") => {
+    const currentSocket = socketRef.current;
+    if (currentSocket && currentSocket.readyState === WebSocket.OPEN && !terminationSentRef.current) {
+      terminationSentRef.current = true;
+      currentSocket.send(JSON.stringify({
+        action: "terminate",
+        reason,
+      }));
+    }
+
+    disconnect();
+  }, [disconnect]);
 
   // ----- AUTO CONNECT -----
   useEffect(() => {
-    if (!didConnect.current) {
-      connect();
-      didConnect.current = true;
-    }
-  }, [connect]);
+    connect();
+
+    return () => {
+      cleanupTimeoutRef.current = setTimeout(() => {
+        terminateMatch("A player left the game.");
+      }, 100);
+    };
+  }, [connect, terminateMatch]);
 
   return {
     socket,
@@ -172,5 +203,6 @@ export const useWebSocketPGG = (matchId, playerFingerprint) => {
     gameParams: params,
     connect,
     disconnect,
+    terminateMatch,
   };
 };

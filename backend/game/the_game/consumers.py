@@ -67,6 +67,16 @@ class GameConsumer(AsyncWebsocketConsumer):
         if not action or not fp:
             return
 
+        self.player_fingerprint = fp
+
+        if action == "leave":
+            await self.abort_incomplete_match(
+                fp,
+                "A player left the game. You will be redirected to the game lobby."
+            )
+            await self.close(code=4001)
+            return
+
         gs = await self.get_game_state()
         if gs["gameOver"]:
             await self.send(text_data=json.dumps(
@@ -90,18 +100,10 @@ class GameConsumer(AsyncWebsocketConsumer):
         if action == "timeout" or action == "abandon":
             logger.info("Player %s abandoned match %s due to timeout", fp, self.match_id)
 
-            # Mark match as complete/abandoned and notify all players
-            exit_path = f"/experiment/{self.game_match.experiment_id}" if self.game_match.experiment_id else "/prisoners"
-            await self.channel_layer.group_send(self.room_group_name, {
-                "type": "game_aborted",
-                "msg": "Match ended due to player inactivity. You will be redirected to the game lobby.",
-                "redirect_to": exit_path
-            })
-
-            # Delete the match
-            if self.game_match:
-                await database_sync_to_async(self.game_match.delete)()
-                logger.info("Match %s deleted due to timeout", self.match_id)
+            await self.abort_incomplete_match(
+                fp,
+                "Match ended due to player inactivity. You will be redirected to the game lobby."
+            )
             return
 
         # ─── actions ───
@@ -180,9 +182,53 @@ class GameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def delete_incomplete_match(self):
         """Delete the match if it's incomplete"""
-        if self.game_match:
-            self.game_match.refresh_from_db()
-            return self.game_match.delete_if_incomplete()
+        try:
+            game_match = GameMatch.objects.get(match_id=self.match_id)
+        except GameMatch.DoesNotExist:
+            return False
+
+        return game_match.delete_if_incomplete()
+
+    @database_sync_to_async
+    def delete_incomplete_match_for_player(self, fp):
+        try:
+            game_match = GameMatch.objects.get(match_id=self.match_id)
+        except GameMatch.DoesNotExist:
+            return False
+
+        if fp not in (
+            game_match.player_1_fingerprint,
+            game_match.player_2_fingerprint,
+        ):
+            logger.warning(
+                "Ignoring leave for unregistered player %s in match %s",
+                fp,
+                self.match_id,
+            )
+            return False
+
+        return game_match.delete_if_incomplete()
+
+    @database_sync_to_async
+    def get_exit_path(self):
+        try:
+            game_match = GameMatch.objects.get(match_id=self.match_id)
+        except GameMatch.DoesNotExist:
+            game_match = self.game_match
+
+        return f"/experiment/{game_match.experiment_id}" if game_match.experiment_id else "/prisoners"
+
+    async def abort_incomplete_match(self, fp, message):
+        exit_path = await self.get_exit_path()
+        deleted = await self.delete_incomplete_match_for_player(fp)
+        if deleted:
+            await self.channel_layer.group_send(self.room_group_name, {
+                "type": "game_aborted",
+                "msg": message,
+                "redirect_to": exit_path
+            })
+            logger.info("Incomplete match %s deleted after player %s left.", self.match_id, fp)
+            return True
         return False
 
     @database_sync_to_async

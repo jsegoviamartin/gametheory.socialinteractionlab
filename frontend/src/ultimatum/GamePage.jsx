@@ -131,6 +131,7 @@ const DEFAULT_MAX_ROUNDS = 25
 const DEFAULT_ENDOWMENT = 100
 const OFFER_TIME_LIMIT = 25
 const RESPONSE_TIME_LIMIT = 25
+const leftMatchKey = (matchId) => `ultimatum_left_match_${matchId}`
 
 export default function GamePage() {
   const navigate = useNavigate()
@@ -143,6 +144,9 @@ export default function GamePage() {
 
   const [playerFingerprint] = useState(() => getPlayerFingerprint())
   const [matchId, setMatchId] = useState(urlMatchId)
+  const [leftMatchOnReload] = useState(() => (
+    Boolean(urlMatchId) && sessionStorage.getItem(leftMatchKey(urlMatchId)) === "true"
+  ))
   const [isInitializing, setIsInitializing] = useState(true)
 
   // Game state for simultaneous play
@@ -171,7 +175,7 @@ export default function GamePage() {
     gameState, latestResults, connectionStatus, error,
     matchTerminated, terminationReason,
     sendMessage, disconnect
-  } = useWebSocket(matchId, playerFingerprint);
+  } = useWebSocket(leftMatchOnReload ? null : matchId, playerFingerprint);
 
   // Handle round results
   useEffect(() => {
@@ -205,6 +209,15 @@ export default function GamePage() {
   }, [gameState?.gameOver]);
 
   useEffect(() => {
+    if (leftMatchOnReload) {
+      if (urlMatchId) {
+        sessionStorage.removeItem(leftMatchKey(urlMatchId))
+      }
+      const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/ultimatum";
+      navigate(exitPath, { replace: true });
+      return;
+    }
+
     const initializeMatch = async () => {
       if (urlMatchId) {
         console.log("🔗 Using existing match from URL:", urlMatchId)
@@ -239,7 +252,7 @@ export default function GamePage() {
     }
 
     initializeMatch()
-  }, [gameMode, playerFingerprint, urlMatchId, gameType])
+  }, [experimentId, gameMode, leftMatchOnReload, navigate, playerFingerprint, urlMatchId, gameType])
 
   useEffect(() => {
     if (matchTerminated) {
@@ -247,7 +260,7 @@ export default function GamePage() {
       const t = setTimeout(() => navigate(exitPath), 2000);
       return () => clearTimeout(t);
     }
-  }, [matchTerminated, navigate]);
+  }, [experimentId, matchTerminated, navigate]);
 
   useEffect(() => {
     if (!gameState) return
@@ -343,19 +356,31 @@ export default function GamePage() {
   }, [offerTimeLeft, responseTimeLeft, currentPhase]);
 
   useEffect(() => {
+    const markLeavingMatch = () => {
+      if (gameMode === "online" && matchId && !gameState?.gameOver) {
+        sessionStorage.setItem(leftMatchKey(matchId), "true");
+      }
+    };
+
     const handlePop = () => {
+      markLeavingMatch();
       disconnect();
       const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/ultimatum";
       navigate(exitPath, { replace: true });
     };
-    const handleUnload = () => disconnect();
+    const handleUnload = () => {
+      markLeavingMatch();
+      disconnect();
+    };
     window.addEventListener("popstate", handlePop);
+    window.addEventListener("pagehide", handleUnload);
     window.addEventListener("beforeunload", handleUnload);
     return () => {
       window.removeEventListener("popstate", handlePop);
+      window.removeEventListener("pagehide", handleUnload);
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, [disconnect]);
+  }, [disconnect, experimentId, gameMode, gameState?.gameOver, matchId, navigate]);
 
   // Handle timeout popup countdown
   useEffect(() => {
@@ -374,7 +399,7 @@ export default function GamePage() {
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [showTimeoutPopup, timeoutCountdown, navigate])
+  }, [disconnect, experimentId, showTimeoutPopup, timeoutCountdown, navigate])
 
   // Offer timer countdown
   useEffect(() => {
@@ -475,17 +500,28 @@ export default function GamePage() {
 
   // Handle match termination UI
   if (matchTerminated) {
+    const copy = terminationReason === "timeout"
+      ? {
+          title: "Time Expired",
+          message: "A player ran out of time.",
+        }
+      : terminationReason === "match_not_found"
+        ? {
+            title: "Match Ended",
+            message: "This match is no longer available.",
+          }
+        : {
+            title: "Opponent Disconnected",
+            message: "A player left the match.",
+          }
+
     return (
       <div className="game-page">
         <div className="game-container">
           <div className="error-section">
             <XCircle className="error-icon" />
-            <h2>Opponent Disconnected</h2>
-            <p>
-              {terminationReason === "timeout"
-                ? "Your opponent ran out of time."
-                : "Your opponent left the match."}
-            </p>
+            <h2>{copy.title}</h2>
+            <p>{copy.message}</p>
             <p>You'll be returned to the menu…</p>
           </div>
         </div>
