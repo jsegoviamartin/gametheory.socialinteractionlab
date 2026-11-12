@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, List, Tuple, Any
 
 from django.conf import settings
+from .csv_descriptions import csv_column_descriptions, write_csv_headers
 
 # Import PD models
 from the_game.models import GameMatch, GameRound
@@ -31,6 +32,14 @@ from custom_rooms.models import CustomExperiment, CustomPrisoner, CustomUltimatu
 # BASE_DIR is backend/game  → parent() is backend/
 # EXPORT_ROOT: Path = Path(settings.BASE_DIR).parent
 EXPORT_ROOT: Path = Path(settings.BASE_DIR)
+
+GAME_CSV_FILENAMES = {
+    'prisoner': '2x2 Economic Games.csv',
+    'ultimatum': 'Ultimatum.csv',
+    'public_goods': 'Public Goods.csv',
+    'common_pool': 'Common-Pool Resource.csv',
+    'all': 'All Games.csv',
+}
 
 
 PRISONER_CSV = EXPORT_ROOT / "data_prisoner_clean.csv"
@@ -99,8 +108,8 @@ def _prisoner_rows() -> Tuple[List[str], Iterable[List[Any]]]:
     mirroring the column order used in extract_all_game_data.sql.
     """
     headers = [
-        "row_number",
         "game_match_uuid",
+        "round_number",
         "game_mode",
         "player_1_fingerprint",
         "player_1_action",
@@ -159,20 +168,12 @@ def _prisoner_rows() -> Tuple[List[str], Iterable[List[Any]]]:
     )
 
     def row_iter():
-        last_uuid = None
-        rn = 0
         for gr in qs:
             gm = gr.match
-            uuid = gm.match_id
-            if uuid != last_uuid:
-                rn = 1
-                last_uuid = uuid
-            else:
-                rn += 1
 
             yield [
-                rn,
                 gm.match_id,
+                gr.round_number,
                 gm.game_mode,
                 gm.player_1_fingerprint,
                 gr.player_1_action,
@@ -234,7 +235,7 @@ def export_prisoner_all() -> None:
     # 1) CSV (comma-delimited, Excel-friendly)
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
 
@@ -247,7 +248,7 @@ def export_prisoner_all() -> None:
     ddl = f"""BEGIN;
 
 CREATE TABLE IF NOT EXISTS data_prisoners (
-    row_number INTEGER,
+    round_number INTEGER,
     game_match_uuid TEXT,
     game_mode TEXT,
     player_1_fingerprint TEXT,
@@ -300,8 +301,8 @@ DELETE FROM data_prisoners;
         fh.write(ddl)
         cols_sql = ", ".join(
             [
-                "row_number",
                 "game_match_uuid",
+                "round_number",
                 "game_mode",
                 "player_1_fingerprint",
                 "player_1_action",
@@ -405,8 +406,8 @@ def _ultimatum_rows():
     matching the column order in extract_all_game_data.sql.
     """
     headers = [
-        "round_number",
         "game_match_uuid",
+        "round_number",
         "game_mode",
         "game_type",
         "player_1_fingerprint",
@@ -489,19 +490,11 @@ def _ultimatum_rows():
     )
 
     def row_iter():
-        last_uuid = None
-        rn = 0
         for ugr in qs:
-            uuid = ugr.game_match_uuid
-            if uuid != last_uuid:
-                rn = 1
-                last_uuid = uuid
-            else:
-                rn += 1
 
             yield [
-                rn,
                 ugr.game_match_uuid,
+                ugr.round_number,
                 ugr.game_mode,
                 ugr.game_type,
                 ugr.player_1_fingerprint,
@@ -568,7 +561,7 @@ def export_ultimatum_all() -> None:
     # 1) CSV
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
 
@@ -639,8 +632,8 @@ DELETE FROM data_ultimatum;
     def write_sql(fh):
         fh.write(ddl)
         cols_sql = ", ".join([
-            "round_number",
             "game_match_uuid",
+            "round_number",
             "game_mode",
             "game_type",
             "player_1_fingerprint",
@@ -706,7 +699,7 @@ def _public_goods_rows() -> Tuple[List[str], Iterable[List[Any]]]:
     Build rows for Public Goods Game export (completed matches only).
     """
     headers = [
-        "match_id",
+        "game_match_uuid",
         "round_number",
         "room_type",
         "game_mode",
@@ -919,7 +912,7 @@ def export_public_goods_all() -> None:
     # 1) CSV
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
 
@@ -932,7 +925,7 @@ def export_public_goods_all() -> None:
     ddl = """BEGIN;
 
 CREATE TABLE IF NOT EXISTS data_public_goods (
-    match_id TEXT,
+    game_match_uuid TEXT,
     round_number INTEGER,
     room_type TEXT,
     game_mode TEXT,
@@ -986,123 +979,6 @@ CREATE TABLE IF NOT EXISTS data_public_goods (
     player_2_age INTEGER, player_2_gender TEXT, player_2_nationality TEXT, player_2_residence TEXT, player_2_education TEXT,
     player_2_religion TEXT, player_2_meditation TEXT, player_2_meditation_years INTEGER, player_2_punitive_God TEXT,
     player_2_game_theory TEXT, player_2_other TEXT,
-                pg.round_number,
-                pg.room_type,
-                pg.game_mode,
-                pg.player_1_fingerprint,
-                pg.player_2_fingerprint,
-                pg.player_3_fingerprint,
-                pg.player_4_fingerprint,
-                pg.player_1_ip,
-                pg.player_2_ip,
-                pg.player_3_ip,
-                pg.player_4_ip,
-                pg.player_1_contribution,
-                pg.player_2_contribution,
-                pg.player_3_contribution,
-                pg.player_4_contribution,
-                pg.player_1_payoff,
-                pg.player_2_payoff,
-                pg.player_3_payoff,
-                pg.player_4_payoff,
-                pg.total_contributions,
-                pg.group_return,
-                pg.player_1_cumulative_contribution,
-                pg.player_2_cumulative_contribution,
-                pg.player_3_cumulative_contribution,
-                pg.player_4_cumulative_contribution,
-                pg.player_1_cumulative_payoff,
-                pg.player_2_cumulative_payoff,
-                pg.player_3_cumulative_payoff,
-                pg.player_4_cumulative_payoff,
-                json.dumps(pg.round_actions),
-            ]
-            
-            # Add detailed action columns
-            actions = pg.round_actions or []
-            # Compute per-player action strings
-            player_actions = []
-            for i in range(1, 5):
-                act = "none"
-                for a in actions:
-                    if a.get('actor') == i:
-                        if a.get('type') == 'punish':
-                            act = "punishment"
-                            break
-                        if a.get('type') == 'reward':
-                            act = "reward"
-                            break
-                player_actions.append(act)
-            # Compute percentages
-            punish_count = sum(1 for a in actions if a.get('type') == 'punish')
-            reward_count = sum(1 for a in actions if a.get('type') == 'reward')
-            punish_perc = punish_count / 4.0
-            reward_perc = reward_count / 4.0
-
-            for i in range(1, 5):
-                def get_a(actor=None, target=None, atype=None):
-                    names = []
-                    for a in actions:
-                        if (actor is None or a.get('actor') == actor) and \
-                           (target is None or a.get('target') == target) and \
-                           (atype is None or a.get('type') == atype):
-                            whom = a.get('target') if actor is not None else a.get('actor')
-                            names.append(f"Player {whom}")
-                    return ", ".join(names) if names else "none"
-
-                row.extend([
-                    get_a(actor=i, atype='punish'),
-                    get_a(actor=i, atype='reward'),
-                    get_a(target=i, atype='punish'),
-                    get_a(target=i, atype='reward'),
-                ])
-
-            # Append per-player action columns
-            row.extend(player_actions)
-            # Append percentages
-            row.append(punish_perc)
-            row.append(reward_perc)
-
-            row.extend([
-                # P1 Tracking
-                json.dumps(pg.player_1_reward_list), json.dumps(pg.player_1_punish_list),
-                json.dumps(pg.player_1_reward_counts), json.dumps(pg.player_1_punish_counts),
-                # P2 Tracking
-                json.dumps(pg.player_2_reward_list), json.dumps(pg.player_2_punish_list),
-                json.dumps(pg.player_2_reward_counts), json.dumps(pg.player_2_punish_counts),
-                # P3 Tracking
-                json.dumps(pg.player_3_reward_list), json.dumps(pg.player_3_punish_list),
-                json.dumps(pg.player_3_reward_counts), json.dumps(pg.player_3_punish_counts),
-                # P4 Tracking
-                json.dumps(pg.player_4_reward_list), json.dumps(pg.player_4_punish_list),
-                json.dumps(pg.player_4_reward_counts), json.dumps(pg.player_4_punish_counts),
-                pg.created_at.strftime("%Y-%m-%d %H:%M:%S") if pg.created_at else None,
-                pg.started_at.strftime("%Y-%m-%d %H:%M:%S") if pg.started_at else None,
-                pg.completed_at.strftime("%Y-%m-%d %H:%M:%S") if pg.completed_at else None,
-                pg.round_started_at.strftime("%Y-%m-%d %H:%M:%S") if pg.round_started_at else None,
-                pg.round_completed_at.strftime("%Y-%m-%d %H:%M:%S") if pg.round_completed_at else None,
-                # P1 Survey
-                pg.player_1_age, pg.player_1_gender, pg.player_1_nationality, pg.player_1_residence, pg.player_1_education,
-                pg.player_1_religion, pg.player_1_meditation, pg.player_1_meditation_years, pg.player_1_punitive_God,
-                pg.player_1_game_theory, pg.player_1_other,
-                # P2 Survey
-                pg.player_2_age, pg.player_2_gender, pg.player_2_nationality, pg.player_2_residence, pg.player_2_education,
-                pg.player_2_religion, pg.player_2_meditation, pg.player_2_meditation_years, pg.player_2_punitive_God,
-                pg.player_2_game_theory, pg.player_2_other,
-                # P3 Survey
-                pg.player_3_age, pg.player_3_gender, pg.player_3_nationality, pg.player_3_residence, pg.player_3_education,
-                pg.player_3_religion, pg.player_3_meditation, pg.player_3_meditation_years, pg.player_3_punitive_God,
-                pg.player_3_game_theory, pg.player_3_other,
-                # P4 Survey
-                pg.player_4_age, pg.player_4_gender, pg.player_4_nationality, pg.player_4_residence, pg.player_4_education,
-                pg.player_4_religion, pg.player_4_meditation, pg.player_4_meditation_years, pg.player_4_punitive_God,
-                pg.player_4_game_theory, pg.player_4_other,
-            ])
-            yield row
-
-    return headers, row_iter()
-
-
     player_3_age INTEGER, player_3_gender TEXT, player_3_nationality TEXT, player_3_residence TEXT, player_3_education TEXT,
     player_3_religion TEXT, player_3_meditation TEXT, player_3_meditation_years INTEGER, player_3_punitive_God TEXT,
     player_3_game_theory TEXT, player_3_other TEXT,
@@ -1137,7 +1013,7 @@ def _common_pool_rows() -> Tuple[List[str], Iterable[List[Any]]]:
     Build rows for Common Pool Resource Game export (completed matches only).
     """
     headers = [
-        "match_id",
+        "game_match_uuid",
         "round_number",
         "room_type",
         "game_mode",
@@ -1363,7 +1239,7 @@ def export_common_pool_all() -> None:
     # 1) CSV
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
 
@@ -1376,7 +1252,7 @@ def export_common_pool_all() -> None:
     ddl = """BEGIN;
 
 CREATE TABLE IF NOT EXISTS data_common_pool (
-    match_id TEXT,
+    game_match_uuid TEXT,
     round_number INTEGER,
     room_type TEXT,
     game_mode TEXT,
@@ -1480,7 +1356,7 @@ def get_user_data_csv(user, game_type):
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(headers)
+    write_csv_headers(writer, headers)
     for r in rows:
         writer.writerow(["" if v is None else v for v in r])
     
@@ -1489,8 +1365,8 @@ def get_user_data_csv(user, game_type):
 def _custom_prisoner_rows(user=None, experiment_id=None) -> Tuple[List[str], Iterable[List[Any]]]:
     """Build rows for Custom Prisoner's Dilemma matches."""
     headers = [
-        "row_number", "experiment_name", "condition_name", "secret_code",
-        "game_match_uuid", "game_mode", "total_rounds",
+        "game_match_uuid", "round_number", "experiment_name", "condition_name", "secret_code",
+        "game_mode", "total_rounds",
         "p1_cc", "p2_cc", "p1_cd", "p2_cd", "p1_dc", "p2_dc", "p1_dd", "p2_dd",
         "label_a", "label_b",
         "player_1_fingerprint", "player_1_action", "player_1_score",
@@ -1529,26 +1405,19 @@ def _custom_prisoner_rows(user=None, experiment_id=None) -> Tuple[List[str], Ite
     conditions = {c.id: c for c in CustomPrisoner.objects.all()}
 
     def row_iter():
-        last_uuid = None
-        rn = 0
         for gr in qs:
             gm = gr.match
-            uuid = gm.match_id
-            if uuid != last_uuid:
-                rn = 1
-                last_uuid = uuid
-            else:
-                rn += 1
 
             exp = experiments.get(str(gm.experiment_id))
             cond = conditions.get(gm.condition_id)
 
             yield [
-                rn,
+                gm.match_id,
+                gr.round_number,
                 exp.name if exp else "N/A",
                 cond.condition_name if cond else "N/A",
                 exp.secret_code if exp else "N/A",
-                gm.match_id, gm.game_mode, gm.total_rounds,
+                gm.game_mode, gm.total_rounds,
                 gm.p1_cc, gm.p2_cc, gm.p1_cd, gm.p2_cd, gm.p1_dc, gm.p2_dc, gm.p1_dd, gm.p2_dd,
                 gm.label_a, gm.label_b,
                 gm.player_1_fingerprint, gr.player_1_action, gr.player_1_score,
@@ -1570,7 +1439,7 @@ def export_custom_prisoner_all() -> None:
     headers, rows = _custom_prisoner_rows()
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
     _atomic_write(CUSTOM_PRISONER_CSV, write_csv)
@@ -1578,8 +1447,8 @@ def export_custom_prisoner_all() -> None:
     _, rows2 = _custom_prisoner_rows()
     ddl = """BEGIN;
 CREATE TABLE IF NOT EXISTS data_custom_prisoners (
-    row_number INTEGER, experiment_name TEXT, condition_name TEXT, secret_code TEXT,
-    game_match_uuid TEXT, game_mode TEXT, total_rounds INTEGER,
+    game_match_uuid TEXT, round_number INTEGER, experiment_name TEXT, condition_name TEXT, secret_code TEXT,
+    game_mode TEXT, total_rounds INTEGER,
     p1_cc INTEGER, p2_cc INTEGER, p1_cd INTEGER, p2_cd INTEGER, p1_dc INTEGER, p2_dc INTEGER, p1_dd INTEGER, p2_dd INTEGER,
     label_a TEXT, label_b TEXT,
     player_1_fingerprint TEXT, player_1_action TEXT, player_1_score INTEGER,
@@ -1610,8 +1479,8 @@ DELETE FROM data_custom_prisoners;
 def _custom_ultimatum_rows(user=None, experiment_id=None) -> Tuple[List[str], Iterable[List[Any]]]:
     """Build rows for Custom Ultimatum matches."""
     headers = [
-        "round_number", "experiment_name", "condition_name", "secret_code",
-        "game_match_uuid", "game_mode", "game_type", "endowment", "total_rounds",
+        "game_match_uuid", "round_number", "experiment_name", "condition_name", "secret_code",
+        "game_type", "game_mode", "total_rounds", "endowment",
         "player_1_fingerprint", "player_1_ip_address", "player_1_coins_to_keep", "player_1_coins_to_offer",
         "player_1_response_to_p2_offer", "player_1_coins_made_in_round",
         "player_2_fingerprint", "player_2_ip_address", "player_2_coins_to_keep", "player_2_coins_to_offer",
@@ -1665,25 +1534,18 @@ def _custom_ultimatum_rows(user=None, experiment_id=None) -> Tuple[List[str], It
     conditions = {c.id: c for c in CustomUltimatum.objects.all()}
 
     def row_iter():
-        last_uuid = None
-        rn = 0
         for ugr in qs:
-            uuid = ugr.game_match_uuid
-            if uuid != last_uuid:
-                rn = 1
-                last_uuid = uuid
-            else:
-                rn += 1
 
             exp = experiments.get(str(ugr.experiment_id))
             cond = conditions.get(ugr.condition_id)
 
             yield [
-                rn,
+                ugr.game_match_uuid,
+                ugr.round_number,
                 exp.name if exp else "N/A",
                 cond.condition_name if cond else "N/A",
                 exp.secret_code if exp else "N/A",
-                ugr.game_match_uuid, ugr.game_mode, ugr.game_type, ugr.endowment, ugr.total_rounds,
+                ugr.game_type, ugr.game_mode, ugr.total_rounds, ugr.endowment,
                 ugr.player_1_fingerprint, ugr.player_1_ip_address, ugr.player_1_coins_to_keep, ugr.player_1_coins_to_offer,
                 ugr.player_1_response_to_p2_offer, ugr.player_1_coins_made_in_round,
                 ugr.player_2_fingerprint, ugr.player_2_ip_address, ugr.player_2_coins_to_keep, ugr.player_2_coins_to_offer,
@@ -1705,7 +1567,7 @@ def export_custom_ultimatum_all() -> None:
     headers, rows = _custom_ultimatum_rows()
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
     _atomic_write(CUSTOM_ULTIMATUM_CSV, write_csv)
@@ -1713,8 +1575,8 @@ def export_custom_ultimatum_all() -> None:
     _, rows2 = _custom_ultimatum_rows()
     ddl = """BEGIN;
 CREATE TABLE IF NOT EXISTS data_custom_ultimatum (
-    round_number INTEGER, experiment_name TEXT, condition_name TEXT, secret_code TEXT,
-    game_match_uuid TEXT, game_mode TEXT, game_type TEXT, endowment INTEGER, total_rounds INTEGER,
+    game_match_uuid TEXT, round_number INTEGER, experiment_name TEXT, condition_name TEXT, secret_code TEXT,
+    game_type TEXT, game_mode TEXT, total_rounds INTEGER, endowment INTEGER,
     player_1_fingerprint TEXT, player_1_ip_address TEXT, player_1_coins_to_keep INTEGER, player_1_coins_to_offer INTEGER,
     player_1_response_to_p2_offer TEXT, player_1_coins_made_in_round INTEGER,
     player_2_fingerprint TEXT, player_2_ip_address TEXT, player_2_coins_to_keep INTEGER, player_2_coins_to_offer INTEGER,
@@ -1874,7 +1736,7 @@ def export_custom_public_goods_all() -> None:
     headers, rows = _custom_public_goods_rows()
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
     _atomic_write(CUSTOM_PUBLIC_GOODS_CSV, write_csv)
@@ -1932,7 +1794,7 @@ DELETE FROM data_custom_public_goods;
 def _custom_common_pool_rows(user=None, experiment_id=None) -> Tuple[List[str], Iterable[List[Any]]]:
     """Build rows for Custom Common Pool Resource matches."""
     headers = [
-        "match_id", "round_number", "experiment_name", "condition_name", "secret_code",
+        "game_match_uuid", "round_number", "experiment_name", "condition_name", "secret_code",
         "room_type", "game_mode", "total_rounds", "initial_fish_stock", "max_fish_stock",
         "max_extraction", "final_bonus_multiplier", "reward_cost", "reward_value",
         "punishment_cost", "punishment_value",
@@ -2077,7 +1939,7 @@ def export_custom_common_pool_all() -> None:
     headers, rows = _custom_common_pool_rows()
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for r in rows:
             writer.writerow(["" if v is None else v for v in r])
     _atomic_write(CUSTOM_COMMON_POOL_CSV, write_csv)
@@ -2085,7 +1947,7 @@ def export_custom_common_pool_all() -> None:
     _, rows2 = _custom_common_pool_rows()
     ddl = """BEGIN;
 CREATE TABLE IF NOT EXISTS data_custom_common_pool (
-    match_id TEXT, round_number INTEGER, experiment_name TEXT, condition_name TEXT, secret_code TEXT,
+    game_match_uuid TEXT, round_number INTEGER, experiment_name TEXT, condition_name TEXT, secret_code TEXT,
     room_type TEXT, game_mode TEXT, total_rounds INTEGER, initial_fish_stock INTEGER, max_fish_stock INTEGER,
     max_extraction INTEGER, final_bonus_multiplier REAL, reward_cost REAL, reward_value REAL,
     punishment_cost REAL, punishment_value REAL,
@@ -2152,7 +2014,7 @@ def get_user_data_csv(user, game_type, experiment_id=None):
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(headers)
+    write_csv_headers(writer, headers)
     for r in rows:
         writer.writerow(["" if v is None else v for v in r])
     
@@ -2169,12 +2031,19 @@ def get_combined_user_data_csv(user):
     pg_headers, pg_rows = _custom_public_goods_rows(user=user)
     cp_headers, cp_rows = _custom_common_pool_rows(user=user)
 
-    # Union of all headers
-    all_headers = ["game_type_label"] + list(dict.fromkeys(p_headers + u_headers + pg_headers + cp_headers))
+    # Match metadata follows the Public Goods layout, including in combined downloads.
+    union_headers = list(dict.fromkeys(p_headers + u_headers + pg_headers + cp_headers))
+    match_headers = [
+        "game_match_uuid", "round_number", "experiment_name", "condition_name", "secret_code",
+        "game_type_label", "room_type", "game_type", "game_mode", "total_rounds",
+    ]
+    all_headers = [header for header in match_headers if header == "game_type_label" or header in union_headers]
+    all_headers += [header for header in union_headers if header not in all_headers]
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=all_headers, extrasaction='ignore')
     writer.writeheader()
+    writer.writerow(dict(zip(all_headers, csv_column_descriptions(all_headers))))
 
     # Prisoner
     for r in p_rows:
@@ -2250,7 +2119,7 @@ def export_registered_users() -> None:
     
     def write_csv(fh):
         writer = csv.writer(fh, delimiter=",", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
+        write_csv_headers(writer, headers)
         for user in users:
             experiments = user.custom_experiments.all().order_by('created_at')
             total_experiments = experiments.count()

@@ -1,6 +1,5 @@
 import json
 import traceback
-import random
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
@@ -8,13 +7,16 @@ from django.db.models import Q
 from .models import PublicGoodsGameData
 from .utils import get_client_ip
 from game.exports import export_public_goods_all
-from custom_rooms.models import CustomExperiment, CustomPublicGoods
+from custom_rooms.models import CustomExperiment
+from custom_rooms.participation import get_assigned_condition
+from rest_framework.exceptions import APIException
+
 
 @csrf_exempt
 def matchmake_custom_public_goods(request):
     """
     Matchmaking for custom experiments.
-    Finds open match for this experiment_id or creates one with a random condition.
+    Finds an online group or creates an immediate bot group using the selected condition.
     """
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
@@ -23,102 +25,115 @@ def matchmake_custom_public_goods(request):
         data = json.loads(request.body.decode("utf-8"))
         exp_id = data.get("experiment_id")
         player_fp = data.get("player_fingerprint")
-        requested_cond_id = data.get("condition_id") # Match selection from UI
+        requested_cond_id = data.get("condition_id")
+        game_mode = data.get("game_mode")
         ip_address = get_client_ip(request)
 
         if not exp_id or not player_fp:
             return JsonResponse({"status": "error", "message": "experiment_id and player_fingerprint required"}, status=400)
 
-        # 1. Search for available match in THIS experiment
-        match = (
-            PublicGoodsGameData.objects
-            .filter(
-                round_number=1,
-                experiment_id=exp_id,
-                completed_at__isnull=True
-            )
-            .filter(
-                Q(player_1_fingerprint__isnull=True) |
-                Q(player_2_fingerprint__isnull=True) |
-                Q(player_3_fingerprint__isnull=True) |
-                Q(player_4_fingerprint__isnull=True)
-            )
-            .order_by("created_at")
-            .first()
-        )
-
-        # Already joined?
-        if match and player_fp in [match.player_1_fingerprint, match.player_2_fingerprint, match.player_3_fingerprint, match.player_4_fingerprint]:
-            return JsonResponse({
-                "status": "already_joined",
-                "match_id": match.match_id,
-                "players_count": match.players_count(),
-                "is_ready": match.is_ready,
-                "room": match.room_type,
-            })
-
-        # Join existing
-        if match:
-            for i in range(1, 5):
-                if getattr(match, f"player_{i}_fingerprint") is None:
-                    setattr(match, f"player_{i}_fingerprint", player_fp)
-                    setattr(match, f"player_{i}_ip", ip_address)
-                    break
-            match.save()
-            return JsonResponse({
-                "status": "joined_existing_match",
-                "match_id": match.match_id,
-                "players_count": match.players_count(),
-                "is_ready": match.is_ready,
-                "room": match.room_type,
-            })
-
-        # 2. Create New Match with a random condition from the experiment
         experiment = CustomExperiment.objects.get(id=exp_id)
-        conditions = list(CustomPublicGoods.objects.filter(experiment=experiment))
-        
-        if not conditions:
-            return JsonResponse({"status": "error", "message": "No conditions found for this experiment"}, status=400)
-            
-        if requested_cond_id:
-            try:
-                chosen_cond = CustomPublicGoods.objects.get(id=requested_cond_id, experiment=experiment)
-            except CustomPublicGoods.DoesNotExist:
-                chosen_cond = random.choice(conditions)
-        else:
-            chosen_cond = random.choice(conditions)
+        if game_mode is None:
+            game_mode = experiment.game_mode
 
-        match = PublicGoodsGameData.objects.create(
-            match_id=PublicGoodsGameData.generate_match_id(),
-            round_number=1,
-            game_mode="online",
-            experiment_id=exp_id,
-            condition_id=chosen_cond.id,
-            room_type=chosen_cond.room_type,
-            total_rounds=chosen_cond.rounds,
-            endowment=float(chosen_cond.endowment),
-            multiplier=float(chosen_cond.multiplier),
-            punishment_cost=float(chosen_cond.punishment_cost),
-            punishment_value=float(chosen_cond.punishment_value),
-            reward_cost=float(chosen_cond.reward_cost),
-            reward_value=float(chosen_cond.reward_value),
-            player_1_fingerprint=player_fp,
-            player_1_ip=ip_address,
-        )
+        if game_mode not in ["online", "bot"]:
+            return JsonResponse({"status": "error", "message": "Invalid game_mode"}, status=400)
+
+        if game_mode != experiment.game_mode:
+            return JsonResponse({
+                "status": "error",
+                "message": "Game mode must match the experiment's selected mode.",
+            }, status=400)
+
+        chosen_cond = get_assigned_condition(experiment, player_fp, requested_cond_id, 'public_goods')
+
+        if game_mode == "online":
+            match = (
+                PublicGoodsGameData.objects
+                .filter(
+                    round_number=1,
+                    game_mode="online",
+                    experiment_id=exp_id,
+                    condition_id=chosen_cond.id,
+                    completed_at__isnull=True
+                )
+                .filter(
+                    Q(player_1_fingerprint__isnull=True) |
+                    Q(player_2_fingerprint__isnull=True) |
+                    Q(player_3_fingerprint__isnull=True) |
+                    Q(player_4_fingerprint__isnull=True)
+                )
+                .order_by("created_at")
+                .first()
+            )
+
+            if match and player_fp in [match.player_1_fingerprint, match.player_2_fingerprint, match.player_3_fingerprint, match.player_4_fingerprint]:
+                return JsonResponse({
+                    "status": "already_joined",
+                    "match_id": match.match_id,
+                    "game_mode": match.game_mode,
+                    "players_count": match.players_count(),
+                    "is_ready": match.is_ready,
+                    "room": match.room_type,
+                })
+
+            if match:
+                for i in range(1, 5):
+                    if getattr(match, f"player_{i}_fingerprint") is None:
+                        setattr(match, f"player_{i}_fingerprint", player_fp)
+                        setattr(match, f"player_{i}_ip", ip_address)
+                        break
+                match.save()
+                return JsonResponse({
+                    "status": "joined_existing_match",
+                    "match_id": match.match_id,
+                    "game_mode": match.game_mode,
+                    "players_count": match.players_count(),
+                    "is_ready": match.is_ready,
+                    "room": match.room_type,
+                })
+
+        create_kwargs = {
+            "match_id": PublicGoodsGameData.generate_match_id(),
+            "round_number": 1,
+            "game_mode": game_mode,
+            "experiment_id": exp_id,
+            "condition_id": chosen_cond.id,
+            "room_type": chosen_cond.room_type,
+            "total_rounds": chosen_cond.rounds,
+            "endowment": float(chosen_cond.endowment),
+            "multiplier": float(chosen_cond.multiplier),
+            "punishment_cost": float(chosen_cond.punishment_cost),
+            "punishment_value": float(chosen_cond.punishment_value),
+            "reward_cost": float(chosen_cond.reward_cost),
+            "reward_value": float(chosen_cond.reward_value),
+            "player_1_fingerprint": player_fp,
+            "player_1_ip": ip_address,
+        }
+
+        if game_mode == "bot":
+            create_kwargs.update({
+                "player_2_fingerprint": "bot_2",
+                "player_3_fingerprint": "bot_3",
+                "player_4_fingerprint": "bot_4",
+            })
+
+        match = PublicGoodsGameData.objects.create(**create_kwargs)
 
         return JsonResponse({
-            "status": "created_new_match",
+            "status": "created_bot_match" if game_mode == "bot" else "created_new_match",
             "match_id": match.match_id,
-            "players_count": 1,
-            "is_ready": False,
+            "game_mode": match.game_mode,
+            "players_count": 4 if game_mode == "bot" else 1,
+            "is_ready": match.is_ready,
             "room": match.room_type,
         })
 
+    except APIException as e:
+        return JsonResponse({"status": "error", "message": e.detail}, status=e.status_code)
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
-
 # ======================================================
 # CREATE / JOIN MATCH
 # ======================================================

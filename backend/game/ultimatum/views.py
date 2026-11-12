@@ -6,8 +6,9 @@ import uuid
 import traceback
 
 from .models import UltimatumGameRound
-from custom_rooms.models import CustomExperiment, CustomUltimatum
-import random
+from custom_rooms.models import CustomExperiment
+from custom_rooms.participation import get_assigned_condition
+from rest_framework.exceptions import APIException
 
 from game.exports import export_ultimatum_all
 
@@ -142,6 +143,7 @@ def create_match(request):
         traceback.print_exc()
         return JsonResponse({'status': 'error', 'message': f'Database error: {str(e)}'}, status=500)
 
+
 @csrf_exempt
 def matchmake_custom_ultimatum(request):
     """
@@ -154,82 +156,96 @@ def matchmake_custom_ultimatum(request):
         data = json.loads(request.body.decode("utf-8"))
         exp_id = data.get("experiment_id")
         player_fp = data.get("player_fingerprint")
+        requested_cond_id = data.get("condition_id")
+        game_mode = data.get("game_mode")
         ip_address = get_client_ip(request)
 
         if not exp_id or not player_fp:
             return JsonResponse({"status": "error", "message": "experiment_id and player_fingerprint required"}, status=400)
 
-        # 1. Search for available match in THIS experiment
-        match = (
-            UltimatumGameRound.objects
-            .filter(
-                game_mode='online',
-                experiment_id=exp_id,
-                match_complete=False,
-                player_2_fingerprint__isnull=True,
-                round_number=1
-            )
-            .order_by("created_at")
-            .first()
-        )
-
-        # Already joined?
-        if match and player_fp == match.player_1_fingerprint:
-            return JsonResponse({
-                "status": "already_joined",
-                "match_id": match.game_match_uuid,
-            })
-
-        # Join existing
-        if match:
-            match.player_2_fingerprint = player_fp
-            match.player_2_ip_address = ip_address
-            match.player_2_country = 'Unknown'
-            match.player_2_city = 'Unknown'
-            match.save()
-            return JsonResponse({
-                "status": "joined_existing_match",
-                "match_id": match.game_match_uuid,
-            })
-
-        # 2. Create New Match with a random condition from the experiment
         experiment = CustomExperiment.objects.get(id=exp_id)
-        conditions = list(CustomUltimatum.objects.filter(experiment=experiment))
-        
-        if not conditions:
-            return JsonResponse({"status": "error", "message": "No conditions found for this experiment"}, status=400)
-            
-        requested_cond_id = data.get("condition_id")
-        if requested_cond_id:
-            try:
-                chosen_cond = CustomUltimatum.objects.get(id=requested_cond_id, experiment=experiment)
-            except CustomUltimatum.DoesNotExist:
-                chosen_cond = random.choice(conditions)
-        else:
-            chosen_cond = random.choice(conditions)
-            
-        match_id = str(uuid.uuid4())[:8]
+        if game_mode is None:
+            game_mode = experiment.game_mode
 
-        match = UltimatumGameRound.objects.create(
-            game_match_uuid=match_id,
-            round_number=1,
-            game_mode='online',
-            game_type=chosen_cond.game_type,
-            experiment_id=exp_id,
-            condition_id=chosen_cond.id,
-            endowment=chosen_cond.endowment,
-            total_rounds=chosen_cond.rounds,
-            player_1_fingerprint=player_fp,
-            player_1_ip_address=ip_address,
-            player_1_country='Unknown',
-            player_1_city='Unknown',
-        )
+        if game_mode not in ["online", "bot"]:
+            return JsonResponse({"status": "error", "message": "Invalid game_mode"}, status=400)
+
+        if game_mode != experiment.game_mode:
+            return JsonResponse({
+                "status": "error",
+                "message": "Game mode must match the experiment's selected mode.",
+            }, status=400)
+
+        chosen_cond = get_assigned_condition(experiment, player_fp, requested_cond_id, 'ultimatum')
+
+        if game_mode == "online":
+            match = (
+                UltimatumGameRound.objects
+                .filter(
+                    game_mode="online",
+                    experiment_id=exp_id,
+                    condition_id=chosen_cond.id,
+                    match_complete=False,
+                    player_2_fingerprint__isnull=True,
+                    round_number=1
+                )
+                .order_by("created_at")
+                .first()
+            )
+
+            if match and player_fp == match.player_1_fingerprint:
+                return JsonResponse({
+                    "status": "already_joined",
+                    "match_id": match.game_match_uuid,
+                    "game_mode": match.game_mode,
+                })
+
+            if match:
+                match.player_2_fingerprint = player_fp
+                match.player_2_ip_address = ip_address
+                match.player_2_country = "Unknown"
+                match.player_2_city = "Unknown"
+                match.save()
+                return JsonResponse({
+                    "status": "joined_existing_match",
+                    "match_id": match.game_match_uuid,
+                    "game_mode": match.game_mode,
+                })
+
+        match_id = str(uuid.uuid4())[:8]
+        create_kwargs = {
+            "game_match_uuid": match_id,
+            "round_number": 1,
+            "game_mode": game_mode,
+            "game_type": chosen_cond.game_type,
+            "experiment_id": exp_id,
+            "condition_id": chosen_cond.id,
+            "endowment": chosen_cond.endowment,
+            "total_rounds": chosen_cond.rounds,
+            "player_1_fingerprint": player_fp,
+            "player_1_ip_address": ip_address,
+            "player_1_country": "Unknown",
+            "player_1_city": "Unknown",
+        }
+
+        if game_mode == "bot":
+            create_kwargs.update({
+                "player_2_fingerprint": "bot",
+                "player_2_country": "Bot",
+                "player_2_city": "Bot",
+                "player_2_ip_address": None,
+            })
+
+        match = UltimatumGameRound.objects.create(**create_kwargs)
 
         return JsonResponse({
-            "status": "created_new_match",
+            "status": "created_bot_match" if game_mode == "bot" else "created_new_match",
             "match_id": match.game_match_uuid,
+            "game_mode": match.game_mode,
         })
 
+    except APIException as e:
+        return JsonResponse({"status": "error", "message": e.detail}, status=e.status_code)
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": str(e)}, status=500)

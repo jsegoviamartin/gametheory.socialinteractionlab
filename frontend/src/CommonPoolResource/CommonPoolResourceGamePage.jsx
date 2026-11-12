@@ -1,6 +1,6 @@
-import { memo, useState, useEffect, useMemo, useRef } from "react"
+import { Fragment, memo, useState, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { Clock, Loader2, MessageSquare, X } from "lucide-react"
+import { Clock, Loader2, MessageSquare } from "lucide-react"
 import "./GamePage.css"
 
 import fishingRodImg from "../assets/fishing-rod.png"
@@ -346,10 +346,40 @@ export default function CommonPoolResourceGamePage() {
   const [history, setHistory] = useState([])
   const [gameEndedReason, setGameEndedReason] = useState(null)
   const contributionSubmitted = useRef(false)
+  const arenaSlotRef = useRef(null)
+  const arenaCanvasRef = useRef(null)
   const [showSurvey, setShowSurvey] = useState(false)
   const [surveySubmitted, setSurveySubmitted] = useState(false)
-  const [showGameOverPopup, setShowGameOverPopup] = useState(true)
   const [fishStock, setFishStock] = useState(maxFishStock)
+
+  useLayoutEffect(() => {
+    const slot = arenaSlotRef.current
+    const canvas = arenaCanvasRef.current
+    if (!slot || !canvas) return undefined
+
+    const fitArena = () => {
+      const baseWidth = canvas.offsetWidth
+      const baseHeight = canvas.offsetHeight
+      if (!baseWidth || !baseHeight) return
+
+      const scale = Math.min(
+        1,
+        slot.clientWidth / baseWidth,
+        slot.clientHeight / baseHeight
+      )
+      canvas.style.setProperty("--cpr-arena-scale", String(Math.max(0, scale)))
+    }
+
+    fitArena()
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitArena)
+    observer?.observe(slot)
+    window.addEventListener("resize", fitArena)
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener("resize", fitArena)
+    }
+  }, [isReady])
 
   useEffect(() => {
     if (wsFishStock !== undefined && wsFishStock !== null) {
@@ -716,7 +746,7 @@ export default function CommonPoolResourceGamePage() {
   // Render
   // ---------------------------------
   return (
-    <div className="cpr-game-page">
+    <div className={`cpr-game-page cpr-phase-${phase}`}>
       <div className="cpr-game-container">
         {!isReady && phase !== "finished" && (
           <div className="cpr-connection-blocker">
@@ -749,6 +779,7 @@ export default function CommonPoolResourceGamePage() {
           </div>
         )}
 
+        <div className="cpr-gameplay-viewport">
         <div className="cpr-game-header">
           <h1 className="cpr-game-title cpr-simultaneous">Common-pool Resource Game</h1>
           <p className="cpr-game-subtitle">
@@ -758,7 +789,7 @@ export default function CommonPoolResourceGamePage() {
           <p className="cpr-player-id">
             You are: {playerIndex ? `Player ${playerIndex}` : "Connecting..."}
           </p>
-          <button
+          {phase !== "finished" && <button
             className="cpr-leave-game-btn"
             onClick={() => {
               if (mode === "online") {
@@ -771,10 +802,11 @@ export default function CommonPoolResourceGamePage() {
             }}
           >
             Leave Game
-          </button>
+          </button>}
         </div>
 
         {isReady && phase !== "finished" && (
+          <div className="cpr-gameplay-layout">
           <div className="cpr-game-board">
             <div className="cpr-game-cardd">
               <div className="cpr-game-cardd-header">
@@ -802,7 +834,8 @@ export default function CommonPoolResourceGamePage() {
                   )}
                 </div>
 
-                <div className="cpr-common-pool-table-area">
+                <div className="cpr-arena-slot" ref={arenaSlotRef}>
+                <div className="cpr-common-pool-table-area" ref={arenaCanvasRef}>
                   <LivingFishPool
                     key={`${fishCount}-${maxFishStock}-${layoutCount}`}
                     targetStock={fishStock}
@@ -816,24 +849,18 @@ export default function CommonPoolResourceGamePage() {
                   {players.map((p, i) => {
                     const pos = ["top-left", "top-right", "bottom-left", "bottom-right"][i];
                     return (
-                      <div key={i}>
+                      <Fragment key={i}>
+                      <div className={`cpr-player-seat cpr-seat-${pos}`}>
                         <img src={p.img}
-                          alt=""
+                          alt={p.label || `Player ${i + 1}`}
                           className={`cpr-player cpr-player-${pos}`} />
-                        
-                        {/* Fishing Rod */}
-                        <img 
-                          src={fishingRodImg} 
-                          alt="" 
-                          className={`cpr-fishing-rod cpr-fishing-rod-${pos}`}
-                        />
 
-                        <span className={`cpr-pgg-player-label cpr-label-${pos}`}>
+                        <span className="cpr-pgg-player-label">
                           {p.label || (p.fingerprint === playerFingerprint ? "You" : p.fingerprint)}
                         </span>
 
                         {phase === "stage2" && p.fingerprint !== playerFingerprint && (
-                          <div className={`cpr-stage2-btn-group cpr-btn-group-${pos}`}>
+                          <div className="cpr-stage2-btn-group">
                             {isRewardRoom && (
                               <button
                                 className="cpr-stage2-btn cpr-reward-btn"
@@ -855,32 +882,44 @@ export default function CommonPoolResourceGamePage() {
                           </div>
                         )}
                       </div>
+                      <img
+                        src={fishingRodImg}
+                        alt=""
+                        className={`cpr-fishing-rod cpr-arena-fishing-rod cpr-arena-fishing-rod-${pos}`}
+                      />
+                      </Fragment>
                     );
                   })}
 
 
                 </div>
+                </div>
 
                 {phase === "contribution" && connectionStatus === "connected" && playerIndex && (
                   <div className="cpr-horizontal-contribution-area">
                     <div className="cpr-coin-stack cpr-contribution-stack">
-                      <div
-                        className="cpr-coin-stack-visual"
-                        style={{ width: `${(currentContribution / MAX_EXTRACTION) * 300 + 30}px` }}
-                      >
-                        <div className="cpr-coin-amount">{currentContribution}</div>
+                      <div className="cpr-extraction-value">
+                        <span>{currentContribution}</span>
+                        <small>fish</small>
                       </div>
-                      <div className="cpr-stack-label">YOU EXTRACT</div>
+                      <div className="cpr-stack-label">Your extraction</div>
                     </div>
 
-                    <input
-                      type="range"
-                      min="0"
-                      max={MAX_EXTRACTION}
-                      value={currentContribution}
-                      onChange={handleSliderChange}
-                      className="cpr-horizontal-slider"
-                    />
+                    <div className="cpr-slider-control">
+                      <input
+                        type="range"
+                        min="0"
+                        max={MAX_EXTRACTION}
+                        value={currentContribution}
+                        onChange={handleSliderChange}
+                        className="cpr-horizontal-slider"
+                        aria-label="Extraction amount"
+                      />
+                      <div className="cpr-slider-limits" aria-hidden="true">
+                        <span>0</span>
+                        <span>{MAX_EXTRACTION}</span>
+                      </div>
+                    </div>
 
                     <button className="cpr-submit-button-visual" onClick={handleSubmit}>
                       SUBMIT
@@ -907,12 +946,14 @@ export default function CommonPoolResourceGamePage() {
               </div>
             </div>
           </div>
+          </div>
         )}
+        </div>
 
         {history.length > 0 && (
-          <div className="cpr-payoffs-area">
+          <section className="cpr-payoffs-area" aria-label="Game history">
             <PayoffsTable history={history} playerIndex={playerIndex} />
-          </div>
+          </section>
         )}
       </div>
 
@@ -981,7 +1022,7 @@ export default function CommonPoolResourceGamePage() {
         </div>
       )}
 
-      {phase === "finished" && !showSurvey && showGameOverPopup && (
+      {phase === "finished" && !showSurvey && (
         <>
           <div className="cpr-results-overlay" />
           <div className="cpr-results-popup-card" style={{
@@ -991,34 +1032,13 @@ export default function CommonPoolResourceGamePage() {
             gap: '2rem',
             padding: '3rem',
             position: 'fixed',
-            top: '5rem',
+            top: '50%',
             left: '50%',
-            transform: 'translateX(-50%)',
+            transform: 'translate(-50%, -50%)',
+            maxHeight: 'calc(100dvh - 2rem)',
+            overflowY: 'auto',
             zIndex: 10000
           }}>
-            <button
-              onClick={() => setShowGameOverPopup(false)}
-              style={{
-                position: 'absolute',
-                top: '1rem',
-                right: '1rem',
-                background: 'rgba(255,255,255,0.1)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: 'white',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-            >
-              <X size={20} />
-            </button>
             <h2 style={{ fontSize: '2.5rem', margin: 0 }}>Game Over</h2>
 
             <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center', maxWidth: '400px', margin: '0' }}>
@@ -1086,8 +1106,7 @@ export default function CommonPoolResourceGamePage() {
 
             <button
               onClick={() => {
-                const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/common-pool";
-                navigate(exitPath);
+                navigate("/");
               }}
               style={{
                 padding: "1rem 2rem",
@@ -1103,7 +1122,7 @@ export default function CommonPoolResourceGamePage() {
               onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
               onMouseOut={(e) => e.currentTarget.style.opacity = '0.9'}
             >
-              {experimentId ? "Back to Laboratory" : "Back to Menu"}
+              Go back to portal
             </button>
           </div>
         </>

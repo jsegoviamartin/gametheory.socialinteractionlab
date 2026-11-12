@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react"
-import { useParams, useNavigate, Link } from "react-router-dom"
-import { ArrowLeft, PlusCircle, Database, Trash2 } from "lucide-react"
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
+import { ArrowLeft, PlusCircle, Database, Trash2, FileText, Pencil } from "lucide-react"
 import "./ExperimentDetails.css"
 
 function ExperimentDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [experiment, setExperiment] = useState(null)
   const [conditions, setConditions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -32,6 +33,8 @@ function ExperimentDetails() {
           ...(data.common_pool_conditions || [])
         ]
         setConditions(allConditions)
+        const selectedIndex = allConditions.findIndex(condition => String(condition.id) === searchParams.get('conditionId'))
+        setActiveTab(selectedIndex >= 0 ? selectedIndex : 0)
       }
     } finally {
       setIsLoading(false)
@@ -96,13 +99,22 @@ function ExperimentDetails() {
             </span>
             <h1 className="project-title">{experiment.name}</h1>
           </div>
-          <button 
-            className="add-cond-btn"
-            onClick={() => navigate(`/create-experiment?experimentId=${experiment.id}&gameType=${experiment.game_type}`)}
-          >
-            <PlusCircle size={20} />
-            Add Condition
-          </button>
+          <div className="project-actions">
+            <button
+              className="edit-consent-btn"
+              onClick={() => navigate(`/create-experiment?experimentId=${experiment.id}&gameType=${experiment.game_type}&section=consent`)}
+            >
+              <FileText size={20} />
+              Edit Consent Form
+            </button>
+            <button
+              className="add-cond-btn"
+              onClick={() => navigate(`/create-experiment?experimentId=${experiment.id}&gameType=${experiment.game_type}`)}
+            >
+              <PlusCircle size={20} />
+              Add Condition
+            </button>
+          </div>
         </div>
 
         {/* Tab Selection */}
@@ -127,12 +139,21 @@ function ExperimentDetails() {
             <div className="workspace-header">
               <div className="header-label">
                 <Database size={16} />
-                <span>Condition Rules</span>
+                <span>{currentCondition.condition_name}</span>
               </div>
-              <button className="delete-cond-btn" onClick={() => deleteCondition(currentCondition.id)}>
-                <Trash2 size={16} />
-                Delete Condition
-              </button>
+              <div className="condition-actions">
+                <button
+                  className="edit-cond-mini"
+                  onClick={() => navigate(`/create-experiment?experimentId=${experiment.id}&gameType=${experiment.game_type}&conditionId=${currentCondition.id}`)}
+                >
+                  <Pencil size={16} />
+                  Edit Condition
+                </button>
+                <button className="delete-cond-btn" onClick={() => deleteCondition(currentCondition.id)}>
+                  <Trash2 size={16} />
+                  Delete Condition
+                </button>
+              </div>
             </div>
 
             <div className="params-grid">

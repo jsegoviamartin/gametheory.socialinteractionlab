@@ -17,6 +17,10 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
  */
 export const submitSurvey = async ({ matchId, playerFingerprint, gameType, surveyData }) => {
   try {
+    if (!matchId || !playerFingerprint) {
+      throw new Error('Your game session is unavailable. Please return to the game and reopen the survey.');
+    }
+
     // Determine the correct endpoint based on game type
     let endpoint;
     if (gameType === 'prisoners') {

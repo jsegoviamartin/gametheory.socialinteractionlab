@@ -16,10 +16,31 @@ class CustomExperiment(models.Model):
     name = models.CharField(max_length=255)
     secret_code = models.CharField(max_length=6, blank=True, null=True)
     game_type = models.CharField(max_length=50, choices=GAME_TYPES)
+    game_mode = models.CharField(
+        max_length=20,
+        choices=[('online', 'Online'), ('bot', 'Bot')],
+        default='online',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.name} ({self.game_type})"
+
+
+class ExperimentParticipation(models.Model):
+    experiment = models.ForeignKey(CustomExperiment, on_delete=models.CASCADE, related_name='participations')
+    player_fingerprint = models.CharField(max_length=255)
+    condition_id = models.PositiveIntegerField()
+    consent_accepted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['experiment', 'player_fingerprint'],
+                name='unique_experiment_participant',
+            ),
+        ]
+
 
 class CustomPrisoner(models.Model):
     creator_username = models.CharField(max_length=150, blank=True, null=True)

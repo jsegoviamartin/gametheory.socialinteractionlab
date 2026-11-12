@@ -154,6 +154,55 @@
   box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
 }
 
+.experiment-mode-select {
+  margin: 3rem 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.experiment-mode-select legend {
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.experiment-mode-select p {
+  margin: 1rem 0 1.5rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.experiment-mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.experiment-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  cursor: pointer;
+}
+
+.experiment-mode-option.selected {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.experiment-mode-option:focus-within {
+  outline: 2px solid #38bdf8;
+  outline-offset: 3px;
+}
+
+.experiment-mode-option input {
+  accent-color: #38bdf8;
+}
+
 .preset-row {
   display: flex;
   gap: 1rem;

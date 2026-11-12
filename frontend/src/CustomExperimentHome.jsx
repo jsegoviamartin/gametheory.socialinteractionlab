@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
-import { Coins, ArrowLeft, Database, Zap, Play } from "lucide-react"
+import { Coins, ArrowLeft, Database, Zap, Users, Bot } from "lucide-react"
 import PayoffMatrix from "./components/PayoffMatrix"
 import { gameApi, getPlayerFingerprint } from "./services/gameApi"
 import "./CustomExperimentHome.css"
@@ -8,70 +8,71 @@ import "./CustomExperimentHome.css"
 function CustomExperimentHome() {
   const { id } = useParams()
   const [experiment, setExperiment] = useState(null)
-  const [activeTab, setActiveTab] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
   const [isLaunching, setIsLaunching] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Force consent check
-    const consentAccepted = sessionStorage.getItem(`consent_${id}`)
-    if (consentAccepted !== "accepted") {
-      navigate(`/experiments/${id}/consent`)
-    } else {
-      fetchExperiment()
-    }
+    setIsLoading(true)
+    setExperiment(null)
+    setError("")
+    fetchExperiment()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate])
 
   const fetchExperiment = async () => {
     try {
-      const token = localStorage.getItem("token")
-      const detailResp = await fetch(`/api/custom-rooms/experiments/${id}/`, {
-         headers: token ? { "Authorization": `Bearer ${token}` } : {}
-      })
+      const fingerprint = encodeURIComponent(getPlayerFingerprint())
+      const detailResp = await fetch(`/api/custom-rooms/experiments/${id}/participation/?player_fingerprint=${fingerprint}`)
       if (detailResp.ok) {
          setExperiment(await detailResp.json())
+      } else if (detailResp.status === 403) {
+         navigate(`/experiments/${id}/consent`, { replace: true })
+      } else {
+         setError("Your experiment could not be loaded. Please try again or contact the researcher.")
       }
     } catch (err) {
       console.error("Home fetch error:", err)
+      setError("Your experiment could not be loaded. Please try again or contact the researcher.")
     } finally {
       setIsLoading(false)
     }
   }
   
   const handleLaunchGame = async () => {
+    const mode = experiment.game_mode || "online"
     try {
       setIsLaunching(true)
       const fp = getPlayerFingerprint()
 
-      const selectedCondition = conditions[activeTab]
-      const conditionId = selectedCondition ? selectedCondition.id : null
+      const conditionId = experiment.condition.id
 
       if (experiment.game_type === 'public_goods') {
         // Navigate to specialized matchmaking page for PGG
-        navigate(`/public-goods/matchmaking?room=basic&mode=online&experiment_id=${experiment.id}&condition_id=${conditionId || ''}`)
+        navigate(`/public-goods/matchmaking?room=basic&mode=${mode}&experiment_id=${experiment.id}&condition_id=${conditionId || ''}`)
         return;
       }
       if (experiment.game_type === 'common_pool') {
         // Navigate to specialized matchmaking page for CPR
-        navigate(`/common-pool/matchmaking?room=basic&mode=online&experiment_id=${experiment.id}&condition_id=${conditionId || ''}`)
+        navigate(`/common-pool/matchmaking?room=basic&mode=${mode}&experiment_id=${experiment.id}&condition_id=${conditionId || ''}`)
         return;
       }
 
       let data = null;
       if (experiment.game_type === 'ultimatum') {
-        data = await gameApi.matchmakeCustomUltimatum(id, fp, conditionId)
+        data = await gameApi.matchmakeCustomUltimatum(id, fp, conditionId, mode)
       } else {
         // Strategic Games (prisoner / 2x2)
-        data = await gameApi.matchmakeCustomTheGame(id, fp, conditionId)
+        data = await gameApi.matchmakeCustomTheGame(id, fp, conditionId, mode)
       }
 
       if (data && data.match_id) {
         let finalUrl = ""
         if (experiment.game_type === 'ultimatum') {
-          finalUrl = `/ultimatum/game?match=${data.match_id}&experiment=${id}&mode=online`
+          finalUrl = `/ultimatum/game?match=${data.match_id}&experiment=${id}&mode=${mode}`
         } else {
-          finalUrl = `/prisoners/game/${data.match_id}?experiment=${id}&mode=online`
+          finalUrl = `/prisoners/game/${data.match_id}?experiment=${id}&mode=${mode}`
         }
         navigate(finalUrl)
       }
@@ -92,16 +93,10 @@ function CustomExperimentHome() {
     )
   }
 
-  if (!experiment) return <div className="hub-error">Study not found.</div>
+  if (!experiment || !experiment.condition) return <div className="hub-error" role="alert">{error || "Study not found."}</div>
 
-  const conditions = [
-    ...(experiment.prisoner_conditions || []),
-    ...(experiment.ultimatum_conditions || []),
-    ...(experiment.public_goods_conditions || []),
-    ...(experiment.common_pool_conditions || [])
-  ]
-
-  const currentCondition = conditions[activeTab] || {}
+  const currentCondition = experiment.condition
+  const isBotMode = experiment.game_mode === "bot"
 
   const renderStage2Rules = (cond) => {
     switch (cond.room_type) {
@@ -439,20 +434,6 @@ function CustomExperimentHome() {
           </div>
         </div>
 
-        {conditions.length > 1 && (
-          <div className="condition-tabs">
-            {conditions.map((_, idx) => (
-              <button 
-                key={idx} 
-                className={`tab-btn ${activeTab === idx ? "active" : ""}`} 
-                onClick={() => setActiveTab(idx)}
-              >
-                Condition {idx + 1}
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className="hub-main">
           {experiment.game_type === 'prisoner' && renderPrisonerContent()}
           {experiment.game_type === 'ultimatum' && renderUltimatumContent()}
@@ -461,14 +442,24 @@ function CustomExperimentHome() {
         </div>
 
         <div className="hub-actions">
-           <button 
-             className="play-study-btn" 
-             onClick={handleLaunchGame}
-             disabled={isLaunching}
-           >
-              <Play size={24} fill="currentColor" />
-              {isLaunching ? "Connecting..." : "Start a game"}
-           </button>
+          <div className="custom-game-modes">
+            <div className="custom-game-mode-card">
+              <div className="custom-game-mode-icon-container">
+                {isBotMode ? <Bot className="custom-game-mode-icon" /> : <Users className="custom-game-mode-icon" />}
+              </div>
+              <h3 className="custom-game-mode-title">{isBotMode ? "Play with Bot" : "Play Online"}</h3>
+              <p className="custom-game-mode-description">
+                {isBotMode ? "Start immediately against automated opponents" : "Join real participants in this experiment condition"}
+              </p>
+              <button
+                className={`custom-game-mode-button ${isBotMode ? 'custom-bot-button' : 'custom-online-button'}`}
+                onClick={handleLaunchGame}
+                disabled={isLaunching}
+              >
+                {isLaunching ? "Connecting..." : "Start the game"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

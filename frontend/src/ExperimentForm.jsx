@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { ArrowLeft, Save, Zap, Shield, Coins, Users, ShieldAlert, Target, TrendingUp, Info, Clipboard, HelpCircle, Waves } from "lucide-react"
+import { ArrowLeft, Shield, Coins, Users, Clipboard, HelpCircle, Waves } from "lucide-react"
 import { getErrorMessage } from "./utils/errorUtils"
 import "./ExperimentForm.css"
 
@@ -102,7 +102,9 @@ function ExperimentForm() {
   const [error, setError] = useState("")
   const [createdCode, setCreatedCode] = useState(null)
   const [isEditMode, setIsEditMode] = useState(false)
+  const [isConsentEditMode, setIsConsentEditMode] = useState(false)
   const [experimentId, setExperimentId] = useState(null)
+  const [editingConditionId, setEditingConditionId] = useState(null)
 
   
   const [consentData, setConsentData] = useState({
@@ -117,6 +119,7 @@ function ExperimentForm() {
   const [expData, setExpData] = useState({
     name: "",
     game_type: "prisoner",
+    game_mode: "online",
   })
 
   const [isCustomStorage, setIsCustomStorage] = useState(false)
@@ -127,20 +130,27 @@ function ExperimentForm() {
     const editId = params.get('edit')
     const expId = params.get('experimentId')
     const gType = params.get('gameType')
+    const section = params.get('section')
+    const conditionId = params.get('conditionId')
+    const shouldEditConsent = section === 'consent'
 
     if (editId) {
       setIsEditMode(true)
+      setIsConsentEditMode(shouldEditConsent)
       setExperimentId(editId)
+      setStep(shouldEditConsent ? 3 : 1)
       fetchEditData(editId, true)
     } else if (expId && gType) {
+      setEditingConditionId(conditionId)
+      setIsConsentEditMode(shouldEditConsent)
       setExperimentId(expId)
       setExpData(prev => ({ ...prev, game_type: gType }))
-      setStep(2)
-      fetchEditData(expId, false)
+      setStep(shouldEditConsent ? 3 : 2)
+      fetchEditData(expId, false, conditionId)
     }
   }, [])
 
-  const fetchEditData = async (id, isEditing) => {
+  const fetchEditData = async (id, isEditing, conditionId = null) => {
     setIsLoading(true)
     const token = localStorage.getItem("access_token")
     try {
@@ -149,7 +159,7 @@ function ExperimentForm() {
       })
       if (resp.ok) {
         const data = await resp.json()
-        setExpData({ name: data.name, game_type: data.game_type });
+        setExpData({ name: data.name, game_type: data.game_type, game_mode: data.game_mode || "online" });
         try {
           const cResp = await fetch(`/api/custom-rooms/experiments/${id}/consent/`);
           if (cResp.ok) {
@@ -165,8 +175,15 @@ function ExperimentForm() {
         } catch (e) {}
 
         
-        if (isEditing) {
-          const conditions = data.prisoner_conditions?.[0] || data.ultimatum_conditions?.[0] || data.public_goods_conditions?.[0] || data.common_pool_conditions?.[0]
+        if (isEditing || conditionId) {
+          const allConditions = [
+            ...(data.prisoner_conditions || []), ...(data.ultimatum_conditions || []),
+            ...(data.public_goods_conditions || []), ...(data.common_pool_conditions || []),
+          ]
+          const conditions = conditionId
+            ? allConditions.find(condition => String(condition.id) === conditionId)
+            : allConditions[0]
+          if (!conditions) throw new Error("This condition could not be found.")
           if (conditions) {
             setConditionData(prev => ({
               ...prev,
@@ -177,15 +194,15 @@ function ExperimentForm() {
               ultimatum_game_type: conditions.game_type || "iterative",
               pg_rounds: conditions.rounds,
               pg_endowment: conditions.endowment,
-              cpr_initial_fish_stock: conditions.initial_fish_stock || 100,
-              cpr_max_fish_stock: conditions.max_fish_stock || 100,
-              cpr_max_extraction: conditions.max_extraction || 10,
-              cpr_final_bonus_multiplier: conditions.final_bonus_multiplier || 0.4,
+              cpr_initial_fish_stock: conditions.initial_fish_stock ?? 100,
+              cpr_max_fish_stock: conditions.max_fish_stock ?? 100,
+              cpr_max_extraction: conditions.max_extraction ?? 10,
+              cpr_final_bonus_multiplier: conditions.final_bonus_multiplier ?? 0.4,
               cpr_rounds: conditions.rounds,
-              cpr_reward_cost: conditions.reward_cost || 1.0,
-              cpr_reward_value: conditions.reward_value || 4.0,
-              cpr_punishment_cost: conditions.punishment_cost || 1.0,
-              cpr_punishment_value: conditions.punishment_value || 4.0,
+              cpr_reward_cost: conditions.reward_cost ?? 1.0,
+              cpr_reward_value: conditions.reward_value ?? 4.0,
+              cpr_punishment_cost: conditions.punishment_cost ?? 1.0,
+              cpr_punishment_value: conditions.punishment_value ?? 4.0,
             }))
           }
         } else {
@@ -196,7 +213,11 @@ function ExperimentForm() {
                        (data.common_pool_conditions?.length || 0)
           setConditionData(prev => ({ ...prev, name: `Condition ${count + 1}` }))
         }
+      } else {
+        throw new Error("Could not load this experiment. Please try again.")
       }
+    } catch (err) {
+      setError(getErrorMessage(err.message))
     } finally {
       setIsLoading(false)
     }
@@ -263,6 +284,20 @@ function ExperimentForm() {
         setError("Please name this condition");
         setIsLoading(false);
         return;
+      }
+
+      if (editingConditionId) {
+        const response = await fetch(`/api/custom-rooms/experiments/${activeExpId}/update_condition/?condition_id=${editingConditionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify(formatConditionParams(conditionData, expData.game_type)),
+        })
+        if (!response.ok) {
+          const data = await response.json().catch(() => null)
+          throw new Error(data ? getErrorMessage(data) : "Could not save this condition. Please try again.")
+        }
+        navigate(`/experiments/${activeExpId}?conditionId=${editingConditionId}`)
+        return
       }
 
       // Check for duplicate experiment name (only if this is a brand new project)
@@ -464,7 +499,7 @@ function ExperimentForm() {
 
   return (
     <div className="form-page">
-      <Link to="/dashboard" className="back-link">
+      <Link to={editingConditionId ? `/experiments/${experimentId}?conditionId=${editingConditionId}` : "/dashboard"} className="back-link">
         <ArrowLeft size={18} /> Back
       </Link>
 
@@ -496,6 +531,33 @@ function ExperimentForm() {
               </div>
             </div>
 
+            <fieldset className="experiment-mode-select" aria-describedby="experiment-mode-help">
+              <legend>Game Mode</legend>
+              <p id="experiment-mode-help">Applies to all conditions in this experiment.</p>
+              <div className="experiment-mode-options">
+                <label className={`experiment-mode-option ${expData.game_mode === 'online' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="game_mode"
+                    value="online"
+                    checked={expData.game_mode === 'online'}
+                    onChange={e => setExpData({...expData, game_mode: e.target.value})}
+                  />
+                  Online
+                </label>
+                <label className={`experiment-mode-option ${expData.game_mode === 'bot' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="game_mode"
+                    value="bot"
+                    checked={expData.game_mode === 'bot'}
+                    onChange={e => setExpData({...expData, game_mode: e.target.value})}
+                  />
+                  Bot
+                </label>
+              </div>
+            </fieldset>
+
             <button className="next-step-btn" onClick={handleNext} disabled={!expData.name}>
               <span>Next: Set Game Rules</span>
               <ArrowLeft size={18} style={{ transform: 'rotate(180deg)' }} />
@@ -503,10 +565,10 @@ function ExperimentForm() {
           </div>
         ) : step === 2 ? (
           <div className="wizard-step">
-            <h1 className="step-title">Condition Rules</h1>
+            <h1 className="step-title">{editingConditionId ? "Edit Condition" : "Condition Rules"}</h1>
             
             <div className="input-field">
-              <label>Name <Tooltip text="A label for this specific parameter set." /></label>
+              <label>Condition Name <Tooltip text="A label for this specific parameter set." /></label>
               <input type="text" value={conditionData.name} onChange={e => updateCondition({ name: e.target.value })} />
             </div>
 
@@ -729,12 +791,14 @@ function ExperimentForm() {
             )}
 
             <div className="wizard-actions">
-              <button className="secondary-btn" onClick={() => setStep(1)}>Back</button>
-              <button className="secondary-btn" onClick={() => handleCreate(true)} disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save & Add Another"}
+              <button className="secondary-btn" onClick={() => editingConditionId ? navigate(`/experiments/${experimentId}?conditionId=${editingConditionId}`) : setStep(1)}>
+                {editingConditionId ? "Cancel" : "Back"}
               </button>
-              <button className="primary-btn" onClick={() => handleCreate(false)} disabled={isLoading}>
-                {isLoading ? "Saving..." : (experimentId ? "Finish & Save" : "Next: Consent Form")}
+              {!editingConditionId && <button className="secondary-btn" onClick={() => handleCreate(true)} disabled={isLoading}>
+                {isLoading ? "Saving..." : "Save and Add Another Condition"}
+              </button>}
+              <button className="primary-btn" onClick={() => handleCreate(false)} disabled={isLoading || (editingConditionId && !conditionData.id)}>
+                {isLoading ? "Saving..." : (editingConditionId ? "Save Changes" : (experimentId ? "Finish & Save" : "Next: Consent Form"))}
               </button>
             </div>
           </div>
@@ -743,7 +807,7 @@ function ExperimentForm() {
         
         {step === 3 && (
           <div className="wizard-step consent-step">
-            <h1 className="step-title">Consent Form Builder</h1>
+            <h1 className="step-title">{isConsentEditMode ? "Edit Consent Form" : "Consent Form Builder"}</h1>
             <p className="step-subtitle">This form will be shown to participants before they can join the experiment.</p>
             
             <h4 className="sub-title">Study Information</h4>
@@ -938,9 +1002,9 @@ function ExperimentForm() {
             </div>
 
             <div className="wizard-actions">
-              <button className="secondary-btn" onClick={() => setStep(2)}>Back</button>
+              <button className="secondary-btn" onClick={() => isConsentEditMode ? navigate(`/experiments/${experimentId}`) : setStep(2)}>Back</button>
               <button className="primary-btn" onClick={handleSaveConsent} disabled={isLoading}>
-                {isLoading ? "Saving..." : "Finish & Save"}
+                {isLoading ? "Saving..." : (isConsentEditMode ? "Save Consent Form" : "Finish & Save")}
               </button>
             </div>
           </div>

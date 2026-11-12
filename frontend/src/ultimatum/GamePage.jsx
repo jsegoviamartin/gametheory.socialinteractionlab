@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react"
 import {
   Clock,
   DollarSign,
@@ -170,12 +170,42 @@ export default function GamePage() {
   // Timeout popup state
   const [showTimeoutPopup, setShowTimeoutPopup] = useState(false)
   const [timeoutCountdown, setTimeoutCountdown] = useState(5)
+  const arenaSlotRef = useRef(null)
+  const arenaCanvasRef = useRef(null)
 
   const {
     gameState, latestResults, connectionStatus, error,
     matchTerminated, terminationReason,
     sendMessage, disconnect
   } = useWebSocket(leftMatchOnReload ? null : matchId, playerFingerprint);
+
+  useLayoutEffect(() => {
+    const slot = arenaSlotRef.current
+    const canvas = arenaCanvasRef.current
+    if (!slot || !canvas) return undefined
+
+    const fitArena = () => {
+      const baseWidth = canvas.offsetWidth
+      const baseHeight = canvas.offsetHeight
+      if (!baseWidth || !baseHeight) return
+
+      const scale = Math.min(
+        slot.clientWidth / baseWidth,
+        slot.clientHeight / baseHeight
+      )
+      canvas.style.setProperty("--ult-arena-scale", String(Math.max(0, scale)))
+    }
+
+    fitArena()
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitArena)
+    observer?.observe(slot)
+    window.addEventListener("resize", fitArena)
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener("resize", fitArena)
+    }
+  }, [currentPhase, gameState?.waitingForOpponent])
 
   // Handle round results
   useEffect(() => {
@@ -431,7 +461,7 @@ export default function GamePage() {
       total: coinsToKeep + coinsToOffer
     })
 
-    const success = sendMessage({
+    sendMessage({
       action: "make_offer",
       player_fingerprint: playerFingerprint,
       coins_to_keep: coinsToKeep,
@@ -439,7 +469,7 @@ export default function GamePage() {
     })
 
     // Don't reset inputOffer - keep the submitted offer visible
-  }, [inputOffer, sendMessage, playerFingerprint])
+  }, [gameState?.endowment, inputOffer, sendMessage, playerFingerprint])
 
   // Respond to offers
   const respondToPlayer = useCallback((targetPlayer, accept) => {
@@ -605,7 +635,7 @@ export default function GamePage() {
     console.log('Rendering survey modal, showSurvey:', showSurvey);
     console.log('Survey modal props:', {
       matchId,
-      playerFingerprint: playerFingerprint || localStorage.getItem("playerUUID"),
+      playerFingerprint,
       gameType: "ultimatum"
     });
     console.log('About to render survey modal overlay');
@@ -644,7 +674,7 @@ export default function GamePage() {
         >
           <SurveyForm
             matchId={matchId}
-            playerFingerprint={playerFingerprint || localStorage.getItem("playerUUID")}
+            playerFingerprint={playerFingerprint}
             gameType="ultimatum"
             onSubmit={handleSurveySubmit}
             onCancel={handleSurveyCancel}
@@ -724,12 +754,11 @@ export default function GamePage() {
                 PLEASE COMPLETE SURVEY - We'd appreciate your feedback!
               </button>
             )}
-            <button onClick={() => { 
-                disconnect(); 
-                const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/ultimatum";
-                navigate(exitPath); 
+            <button onClick={() => {
+                disconnect();
+                navigate("/");
             }} className="menu-button">
-              {experimentId ? "Back to Laboratory" : "Back to Menu"}
+              Go back to portal
             </button>
           </div>
         </div>
@@ -741,7 +770,7 @@ export default function GamePage() {
 
   // Main game interface
   return (
-    <div className="game-page">
+    <div className={`game-page ultimatum-game-page ultimatum-phase-${currentPhase}`}>
       {/* Round Results Modal */}
       <RoundResultsModal
         data={roundResultsData}
@@ -753,32 +782,31 @@ export default function GamePage() {
       {/* Timeout Popup */}
       <TimeoutPopup />
 
-      <div className="game-container">
-        {/* Connection status */}
-        <div className="connection-status">
-          {connectionStatus === "connected" ? (
-            <>
-              <Wifi className="connection-icon connected" /> Connected
-            </>
-          ) : connectionStatus === "connecting" ? (
-            <>
-              <Loader2 className="connection-icon connecting" /> Connecting
-            </>
-          ) : (
-            <>
-              <WifiOff className="connection-icon disconnected" /> Disconnected
-            </>
-          )}
-        </div>
-
+      <div className="game-container ultimatum-game-container">
+        <div className="ult-gameplay-viewport">
         {/* Game header */}
-        <div className="game-header">
+        <div className="game-header ult-game-header">
           <h1 className="game-title simultaneous">Ultimatum Game </h1>
           <p className="game-subtitle">
             Round {gameState?.currentRound || 1} of {gameState?.maxRounds || DEFAULT_MAX_ROUNDS}
           </p>
           <p className="match-id">Match ID: {matchId}</p>
           <p className="player-id">You are: {isPlayer1 ? "Player 1" : isPlayer2 ? "Player 2" : "Unknown"}</p>
+          <div className="connection-status">
+            {connectionStatus === "connected" ? (
+              <>
+                <Wifi className="connection-icon connected" /> Connected
+              </>
+            ) : connectionStatus === "connecting" ? (
+              <>
+                <Loader2 className="connection-icon connecting" /> Connecting
+              </>
+            ) : (
+              <>
+                <WifiOff className="connection-icon disconnected" /> Disconnected
+              </>
+            )}
+          </div>
         </div>
 
         {/* Main game card */}
@@ -805,6 +833,8 @@ export default function GamePage() {
                 </div>
               </div> */}
 
+              <div className="ult-arena-slot" ref={arenaSlotRef}>
+              <div className="ult-arena-canvas" ref={arenaCanvasRef}>
               {/* Waiting for opponent to join */}
               {gameState?.waitingForOpponent && (
                 <div className="waiting-section">
@@ -1079,8 +1109,11 @@ export default function GamePage() {
                   )}
                 </div>
               )}
+              </div>
+              </div>
             </div>
           </div>
+        </div>
         </div>
 
         {/* Scores */}

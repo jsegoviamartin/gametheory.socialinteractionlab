@@ -276,12 +276,16 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                     await self.send(text_data=json.dumps({"error": "Missing coins_to_keep or coins_to_offer"}))
                     return
 
-                if not (0 <= coins_to_keep <= 100) or not (0 <= coins_to_offer <= 100):
+                endowment = gs["endowment"]
+                if any(type(amount) is not int or not 0 <= amount <= endowment
+                       for amount in (coins_to_keep, coins_to_offer)):
                     await self.send(text_data=json.dumps({"error": "Invalid coin amounts"}))
                     return
 
-                if coins_to_keep + coins_to_offer != 100:
-                    await self.send(text_data=json.dumps({"error": "Coins to keep + coins to offer must equal 100"}))
+                if coins_to_keep + coins_to_offer != endowment:
+                    await self.send(text_data=json.dumps({
+                        "error": f"Coins to keep + coins to offer must equal {endowment}"
+                    }))
                     return
 
                 offer_data = {
@@ -609,7 +613,6 @@ class UltimatumGameConsumer(AsyncWebsocketConsumer):
                 round_number=1
             )
 
-            # Validate that coins_to_keep + coins_to_offer = 100
             # Validate that coins_to_keep + coins_to_offer = endowment
             coins_to_keep = offer_data.get("coins_to_keep")
             coins_to_offer = offer_data.get("coins_to_offer")

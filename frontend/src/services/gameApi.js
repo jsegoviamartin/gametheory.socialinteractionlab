@@ -96,8 +96,8 @@ export const gameApi = {
     return response.json()
   },
 
-  async matchmakeCustomUltimatum(experimentId, playerFingerprint, conditionId = null) {
-    console.log("🎮 [Ultimatum] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId })
+  async matchmakeCustomUltimatum(experimentId, playerFingerprint, conditionId = null, gameMode = "online") {
+    console.log("🎮 [Ultimatum] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId, gameMode })
     const res = await fetch(`${API_BASE_URL}/matchmake-custom/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -105,6 +105,7 @@ export const gameApi = {
         experiment_id: experimentId,
         player_fingerprint: playerFingerprint,
         condition_id: conditionId,
+        game_mode: gameMode,
       }),
     })
     if (!res.ok) throw new Error(`HTTP error ${res.status}`)
@@ -139,8 +140,8 @@ export const gameApi = {
     return data
   },
 
-  async matchmakeCustomPublicGoods(experimentId, playerFingerprint, conditionId = null) {
-    console.log("🎮 [Public Goods] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId })
+  async matchmakeCustomPublicGoods(experimentId, playerFingerprint, conditionId = null, gameMode = "online") {
+    console.log("🎮 [Public Goods] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId, gameMode })
 
     const res = await fetch(`${PG_API_BASE_URL}/matchmake-custom/`, {
       method: "POST",
@@ -149,6 +150,7 @@ export const gameApi = {
         experiment_id: experimentId,
         player_fingerprint: playerFingerprint,
         condition_id: conditionId,
+        game_mode: gameMode,
       }),
     })
 
@@ -189,8 +191,8 @@ export const gameApi = {
     return data
   },
 
-  async matchmakeCustomCommonPool(experimentId, playerFingerprint, conditionId = null) {
-    console.log("🎮 [Common Pool] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId })
+  async matchmakeCustomCommonPool(experimentId, playerFingerprint, conditionId = null, gameMode = "online") {
+    console.log("🎮 [Common Pool] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId, gameMode })
 
     const res = await fetch(`${CPR_API_BASE_URL}/matchmake-custom/`, {
       method: "POST",
@@ -199,6 +201,7 @@ export const gameApi = {
         experiment_id: experimentId,
         player_fingerprint: playerFingerprint,
         condition_id: conditionId,
+        game_mode: gameMode,
       }),
     })
 
@@ -268,8 +271,8 @@ export const gameApi = {
   // -------------------------------
   // Strategic (2x2) Endpoints
   // -------------------------------
-  async matchmakeCustomTheGame(experimentId, playerFingerprint, conditionId = null) {
-    console.log("🎮 [Strategic] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId })
+  async matchmakeCustomTheGame(experimentId, playerFingerprint, conditionId = null, gameMode = "online") {
+    console.log("🎮 [Strategic] Custom Matchmaking:", { experimentId, playerFingerprint, conditionId, gameMode })
     const res = await fetch(`${THE_GAME_API_BASE_URL}/matchmake_custom/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -277,6 +280,7 @@ export const gameApi = {
         experiment_id: experimentId,
         player_fingerprint: playerFingerprint,
         condition_id: conditionId,
+        game_mode: gameMode,
       }),
     })
     if (!res.ok) throw new Error(`HTTP error ${res.status}`)

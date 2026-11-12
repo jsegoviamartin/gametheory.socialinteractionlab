@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useLayoutEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { Clock, Loader2, MessageSquare, X } from "lucide-react"
+import { Clock, Loader2, MessageSquare } from "lucide-react"
 import "./GamePage.css"
 
 import tableImg from "../assets/table.png"
 import playerImg from "../assets/blue.png"
 import redPlayerImg from "../assets/red.png"
-import { getPlayerFingerprint, gameApi } from "../services/gameApi"
+import { getPlayerFingerprint } from "../services/gameApi"
 import PayoffsTable from "./PayoffsTable"
 import { useWebSocketPGG } from "../hooks/useWebSocketPGG"
 import SurveyForm from "../components/SurveyForm"
@@ -137,9 +137,39 @@ export default function PublicGoodsGamePage() {
   const [history, setHistory] = useState([])
   const [gameEndedReason, setGameEndedReason] = useState(null)
   const contributionSubmitted = useRef(false)
+  const arenaSlotRef = useRef(null)
+  const arenaCanvasRef = useRef(null)
   const [showSurvey, setShowSurvey] = useState(false)
   const [surveySubmitted, setSurveySubmitted] = useState(false)
-  const [showGameOverPopup, setShowGameOverPopup] = useState(true)
+
+  useLayoutEffect(() => {
+    const slot = arenaSlotRef.current
+    const canvas = arenaCanvasRef.current
+    if (!slot || !canvas) return undefined
+
+    const fitArena = () => {
+      const baseWidth = canvas.offsetWidth
+      const baseHeight = canvas.offsetHeight
+      if (!baseWidth || !baseHeight) return
+
+      const scale = Math.min(
+        1,
+        slot.clientWidth / baseWidth,
+        slot.clientHeight / baseHeight
+      )
+      canvas.style.setProperty("--pgg-arena-scale", String(Math.max(0, scale)))
+    }
+
+    fitArena()
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitArena)
+    observer?.observe(slot)
+    window.addEventListener("resize", fitArena)
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener("resize", fitArena)
+    }
+  }, [isReady])
 
 
   useEffect(() => {
@@ -497,8 +527,8 @@ export default function PublicGoodsGamePage() {
   // Render
   // ---------------------------------
   return (
-    <div className="game-page">
-      <div className="game-container">
+    <div className={`game-page pgg-game-page pgg-phase-${phase}`}>
+      <div className="game-container pgg-game-container">
         {!isReady && phase !== "finished" && (
           <div className="connection-blocker">
             <div className="connection-blocker__card">
@@ -530,7 +560,8 @@ export default function PublicGoodsGamePage() {
           </div>
         )}
 
-        <div className="game-header">
+        <div className="pgg-gameplay-viewport">
+          <div className="game-header pgg-game-header">
           <h1 className="game-title simultaneous">Public Goods Game</h1>
           <p className="game-subtitle">
             {phase === "finished" ? "Game Finished" : `Round ${roundNumber}`}
@@ -539,18 +570,8 @@ export default function PublicGoodsGamePage() {
           <p className="player-id">
             You are: {playerIndex ? `Player ${playerIndex}` : "Connecting..."}
           </p>
-          <button
-            style={{
-              marginTop: "0.5rem",
-              padding: "1rem 2rem",
-              borderRadius: "1rem",
-              border: "none",
-              background: "#6366F1",
-              color: "white",
-              fontWeight: "bold",
-              cursor: "pointer",
-              alignSelf: "center"
-            }}
+          {phase !== "finished" && <button
+            className="pgg-leave-button"
             onClick={() => {
               if (mode === "online") {
                 terminateMatch(`Player ${playerIndex || ""} left the game.`);
@@ -562,12 +583,13 @@ export default function PublicGoodsGamePage() {
             }}
           >
             Leave Game
-          </button>
-        </div>
+          </button>}
+          </div>
 
-        {isReady && phase !== "finished" && (
-          <div className="game-board">
-            <div className="game-cardd">
+          {isReady && phase !== "finished" && (
+            <div className="pgg-gameplay-layout">
+            <div className="game-board">
+              <div className="game-cardd">
               <div className="game-cardd-header">
                 <div className="timer">
                   <Clock className="timer-icon" />
@@ -593,21 +615,22 @@ export default function PublicGoodsGamePage() {
                   )}
                 </div>
 
-                <div className="public-goods-table-area">
+                <div className="pgg-arena-slot" ref={arenaSlotRef}>
+                <div className="public-goods-table-area" ref={arenaCanvasRef}>
                   <img src={tableImg} alt="Round Table" className="public-goods-table" />
                   {players.map((p, i) => {
                     const pos = ["top-left", "top-right", "bottom-left", "bottom-right"][i];
                     return (
-                      <div key={i}>
+                      <div key={i} className={`pgg-player-seat seat-${pos}`}>
                         <img src={p.img}
-                          alt=""
+                          alt={p.label || `Player ${i + 1}`}
                           className={`player player-${pos}`} />
-                        <span className={`pgg-player-label label-${pos}`}>
+                        <span className="pgg-player-label">
                           {p.label || (p.fingerprint === playerFingerprint ? "You" : p.fingerprint)}
                         </span>
 
                         {phase === "stage2" && p.fingerprint !== playerFingerprint && (
-                          <div className={`stage2-btn-group btn-group-${pos}`}>
+                          <div className="stage2-btn-group">
                             {isRewardRoom && (
                               <button
                                 className="stage2-btn reward-btn"
@@ -634,27 +657,33 @@ export default function PublicGoodsGamePage() {
 
 
                 </div>
+                </div>
 
                 {phase === "contribution" && connectionStatus === "connected" && playerIndex && (
                   <div className="horizontal-contribution-area">
                     <div className="coin-stack contribution-stack">
-                      <div
-                        className="coin-stack-visual"
-                        style={{ width: `${(currentContribution / MAX_COINS) * 300 + 30}px` }}
-                      >
-                        <div className="coin-amount">{currentContribution}</div>
+                      <div className="pgg-contribution-value">
+                        <span>{currentContribution}</span>
+                        <small>coins</small>
                       </div>
-                      <div className="stack-label">YOU CONTRIBUTE</div>
+                      <div className="stack-label">Your contribution</div>
                     </div>
 
-                    <input
-                      type="range"
-                      min="0"
-                      max={gameParams?.endowment || 20}
-                      value={currentContribution}
-                      onChange={handleSliderChange}
-                      className="horizontal-slider"
-                    />
+                    <div className="pgg-slider-control">
+                      <input
+                        type="range"
+                        min="0"
+                        max={gameParams?.endowment || 20}
+                        value={currentContribution}
+                        onChange={handleSliderChange}
+                        className="horizontal-slider"
+                        aria-label="Contribution amount"
+                      />
+                      <div className="pgg-slider-limits" aria-hidden="true">
+                        <span>0</span>
+                        <span>{MAX_COINS}</span>
+                      </div>
+                    </div>
 
                     <button className="submit-button-visual" onClick={handleSubmit}>
                       SUBMIT
@@ -679,14 +708,17 @@ export default function PublicGoodsGamePage() {
                   </button>
                 )}
               </div>
+              </div>
             </div>
-          </div>
-        )}
+
+            </div>
+          )}
+        </div>
 
         {history.length > 0 && (
-          <div className="pgg-payoffs-area">
+          <section className="pgg-payoffs-area" aria-label="Game history">
             <PayoffsTable history={history} playerIndex={playerIndex} />
-          </div>
+          </section>
         )}
       </div>
 
@@ -754,7 +786,7 @@ export default function PublicGoodsGamePage() {
         </div>
       )}
 
-      {phase === "finished" && !showSurvey && showGameOverPopup && (
+      {phase === "finished" && !showSurvey && (
         <>
           <div className="pgg-results-overlay" />
           <div className="pgg-results-popup-card" style={{
@@ -764,34 +796,13 @@ export default function PublicGoodsGamePage() {
             gap: '2rem',
             padding: '3rem',
             position: 'fixed',
-            top: '5rem',
+            top: '50%',
             left: '50%',
-            transform: 'translateX(-50%)',
+            transform: 'translate(-50%, -50%)',
+            maxHeight: 'calc(100dvh - 2rem)',
+            overflowY: 'auto',
             zIndex: 10000
           }}>
-            <button
-              onClick={() => setShowGameOverPopup(false)}
-              style={{
-                position: 'absolute',
-                top: '1rem',
-                right: '1rem',
-                background: 'rgba(255,255,255,0.1)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: 'white',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-            >
-              <X size={20} />
-            </button>
             <h2 style={{ fontSize: '2.5rem', margin: 0 }}>Game Over</h2>
 
             <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center', maxWidth: '400px', margin: '0' }}>
@@ -859,8 +870,7 @@ export default function PublicGoodsGamePage() {
 
             <button
               onClick={() => {
-                const exitPath = experimentId ? `/experiments/${experimentId}/home` : "/public-goods";
-                navigate(exitPath);
+                navigate("/");
               }}
               style={{
                 padding: "1rem 2rem",
@@ -876,7 +886,7 @@ export default function PublicGoodsGamePage() {
               onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
               onMouseOut={(e) => e.currentTarget.style.opacity = '0.9'}
             >
-              {experimentId ? "Back to Laboratory" : "Back to Menu"}
+              Go back to portal
             </button>
           </div>
         </>

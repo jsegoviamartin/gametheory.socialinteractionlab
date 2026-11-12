@@ -122,7 +122,7 @@ export default function CommonPoolResourceMatchmakingPage() {
       
       let matchData;
       if (experimentId) {
-        matchData = await gameApi.matchmakeCustomCommonPool(experimentId, playerFingerprint, conditionId)
+        matchData = await gameApi.matchmakeCustomCommonPool(experimentId, playerFingerprint, conditionId, mode)
       } else {
         matchData = await gameApi.createMatchCommonPool(room, mode, playerFingerprint)
       }

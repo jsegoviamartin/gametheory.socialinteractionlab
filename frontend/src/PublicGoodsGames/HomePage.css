@@ -63,8 +63,8 @@
 }
 
 .homepage-subtitle {
-  font-size: 1.375rem;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: 1.45rem;
+  color: #fff;
   max-width: 48rem;
   margin: 0 auto;
   line-height: 1.7;
@@ -107,7 +107,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 2rem;
-  color: rgba(255, 255, 255, 0.95);
+  color: #fff;
 }
 
 .step {
@@ -149,9 +149,10 @@
 }
 
 .step-description {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   line-height: 1.6;
-  opacity: 0.9;
+  color: #fff;
+  opacity: 1;
 }
 
 .how-to-play-instructions {
@@ -161,11 +162,11 @@
 }
 
 .instruction-section {
-  color: rgba(255, 255, 255, 0.95);
+  color: #fff;
 }
 
 .instruction-intro {
-  font-size: 1.125rem;
+  font-size: 1.2rem;
   line-height: 1.7;
   margin-bottom: 1.5rem;
   text-align: center;
@@ -192,6 +193,8 @@
   margin-bottom: 0.75rem;
   padding-left: 1.5rem;
   position: relative;
+  color: #fff;
+  font-size: 1.05rem;
 }
 
 .instruction-details li::before {
@@ -229,7 +232,8 @@
 
 .example p {
   margin-bottom: 0.5rem;
-  font-size: 0.95rem;
+  color: #fff;
+  font-size: 1.05rem;
   line-height: 1.5;
 }
 
@@ -237,7 +241,8 @@
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 1rem !important;
+  color: #fff;
+  font-size: 1.05rem !important;
 }
 
 .game-modes {
@@ -319,9 +324,9 @@
 }
 
 .game-mode-description {
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff;
   margin-bottom: 2rem;
-  font-size: 1rem;
+  font-size: 1.05rem;
   line-height: 1.6;
 }
 
@@ -409,6 +414,40 @@
   .game-mode-card {
     padding: 2rem;
   }
+}
+
+/* Keep the landing page easy to read at a glance. */
+@media (min-width: 769px) {
+  .homepage-container { max-width: 1120px; }
+  .homepage-header { margin-bottom: 3rem; }
+  .homepage-title { font-size: 3.5rem; }
+  .homepage-subtitle { font-size: 1.3rem; max-width: 46rem; }
+  .how-to-play-card { padding: 2rem; border-radius: 1.25rem; }
+  .how-to-play-title { font-size: 1.5rem; }
+  .how-to-play-icon { width: 1.75rem; height: 1.75rem; }
+  .how-to-play-steps, .game-modes { gap: 1.5rem; }
+  .how-to-play-steps { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .step { padding: 1.5rem; border-radius: 0.9rem; }
+  .step-number { width: 3.5rem; height: 3.5rem; margin-bottom: 0.8rem; font-size: 1.35rem; }
+  .step-title { font-size: 1.1rem; }
+  .step-description { font-size: 1.05rem; }
+  .game-mode-card { padding: 2rem; border-radius: 1.25rem; }
+  .game-mode-icon-container { width: 4rem; height: 4rem; padding: 1.25rem; margin-bottom: 1rem; }
+  .game-mode-icon { width: 2rem; height: 2rem; }
+  .game-mode-title { font-size: 1.4rem; }
+  .game-mode-description { font-size: 1.05rem; }
+  .game-mode-button { padding: 1rem 1.75rem; border-radius: 0.8rem; font-size: 1rem; }
+}
+
+@media (max-width: 768px) {
+  .homepage-title { font-size: 2.5rem; }
+  .homepage-subtitle { font-size: 1.1rem; }
+  .how-to-play-card, .game-mode-card { padding: 1.5rem; }
+  .step { padding: 1.25rem; }
+  .step-title { font-size: 1.05rem; }
+  .step-description, .game-mode-description { font-size: 1rem; }
+  .game-mode-title { font-size: 1.3rem; }
+  .game-mode-button { font-size: 1rem; }
 }
 .grid-2x2 {
   display: grid;

@@ -1,7 +1,55 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { User as UserIcon, LogOut, PlusCircle, Trash2, Play, Settings, Database, FileSpreadsheet, Layers, FolderPlus, Clipboard } from "lucide-react"
+import { User as UserIcon, LogOut, PlusCircle, Trash2, Database, FileSpreadsheet, Layers, FolderPlus, Clipboard, Info } from "lucide-react"
 import "./DashboardPage.css"
+import { getGameCsvFilename } from "./utils/downloadUtils"
+
+const downloadOptions = [
+  {
+    type: "prisoner",
+    label: "2x2",
+    title: "2x2 Game Data",
+    description: "Exports only your 2x2 economic games data in one single CSV file."
+  },
+  {
+    type: "ultimatum",
+    label: "Ultimatum",
+    title: "Ultimatum Data",
+    description: "Exports only your ultimatum games data in one single CSV file."
+  },
+  {
+    type: "public_goods",
+    label: "PGG",
+    title: "Public Goods Data",
+    description: "Exports only your public goods games data in one single CSV file."
+  },
+  {
+    type: "common_pool",
+    label: "CPR",
+    title: "Common-Pool Resource Data",
+    description: "Exports only your common-pool resource games data in one single CSV file."
+  },
+  {
+    type: "all",
+    label: "Download All (Combined)",
+    title: "Combined Data",
+    description: "Exports all your games data in one single CSV file."
+  }
+]
+
+function DownloadInfo({ title, description }) {
+  return (
+    <span className="download-info-wrap">
+      <button className="download-info-btn" type="button" aria-label={`${title}: ${description}`}>
+        <Info size={14} />
+      </button>
+      <span className="download-info-popover" role="tooltip">
+        <strong>{title}</strong>
+        <span>{description}</span>
+      </span>
+    </span>
+  )
+}
 
 function DashboardPage() {
   const [user, setUser] = useState(null)
@@ -77,7 +125,7 @@ function DashboardPage() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `my_${gameType}_data.csv`
+      a.download = getGameCsvFilename(response, gameType)
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -88,7 +136,7 @@ function DashboardPage() {
     }
   }
 
-  const handleDownloadExperiment = async (experimentId, experimentName) => {
+  const handleDownloadExperiment = async (experimentId, gameType) => {
     const token = localStorage.getItem("access_token")
     try {
       const response = await fetch(`/api/custom-rooms/experiments/download_data/?experiment_id=${experimentId}`, {
@@ -106,7 +154,7 @@ function DashboardPage() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `experiment_${experimentName.replace(/\s+/g, '_')}_data.csv`
+      a.download = getGameCsvFilename(response, gameType)
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -180,22 +228,20 @@ function DashboardPage() {
             <div className="download-center">
               <span className="download-label">Download My Data:</span>
               <div className="download-btns">
-                <button className="download-action-btn" onClick={() => handleDownload('prisoner')}>
-                  2x2
-                </button>
-                <button className="download-action-btn" onClick={() => handleDownload('ultimatum')}>
-                  Ultimatum
-                </button>
-                <button className="download-action-btn" onClick={() => handleDownload('public_goods')}>
-                  PGG
-                </button>
-                <button className="download-action-btn" onClick={() => handleDownload('common_pool')}>
-                  CPR
-                </button>
-                <div className="download-divider"></div>
-                <button className="download-action-btn all-btn" onClick={() => handleDownload('all')}>
-                  Download All (Combined)
-                </button>
+                {downloadOptions.map((option) => (
+                  <React.Fragment key={option.type}>
+                    {option.type === "all" && <div className="download-divider"></div>}
+                    <div className="download-option">
+                      <button
+                        className={`download-action-btn ${option.type === "all" ? "all-btn" : ""}`}
+                        onClick={() => handleDownload(option.type)}
+                      >
+                        {option.label}
+                      </button>
+                      <DownloadInfo title={option.title} description={option.description} />
+                    </div>
+                  </React.Fragment>
+                ))}
               </div>
             </div>
             
@@ -218,7 +264,7 @@ function DashboardPage() {
             <div className="col-name">Experiment Name</div>
             <div className="col-code">Secret Code</div>
             <div className="col-type">Game Type</div>
-            <div className="col-stats">Conditions</div>
+            <div className="col-stats">Conditions / mode</div>
             <div className="col-date">Created At</div>
             <div className="col-actions">Actions</div>
           </div>
@@ -255,6 +301,9 @@ function DashboardPage() {
                     (exp.common_pool_conditions?.length || 0)
                   }</span>
                 </div>
+                <span className={`experiment-mode-badge ${exp.game_mode === "bot" ? "bot" : "online"}`}>
+                  {exp.game_mode === "bot" ? "Bot mode" : "Online mode"}
+                </span>
               </div>
               <div className="col-date">
                 {new Date(exp.created_at).toLocaleDateString()}
@@ -264,7 +313,7 @@ function DashboardPage() {
                   <Layers size={18} />
                   View
                 </button>
-                <button className="row-action-btn download" onClick={() => handleDownloadExperiment(exp.id, exp.name)}>
+                <button className="row-action-btn download" onClick={() => handleDownloadExperiment(exp.id, exp.game_type)}>
                   <FileSpreadsheet size={18} />
                   CSV
                 </button>

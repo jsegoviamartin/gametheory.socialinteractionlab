@@ -65,8 +65,8 @@
 }
 
 .game-rules-subtitle {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: 1.125rem;
+  color: #fff;
   max-width: 36rem;
   margin: 0 auto;
   line-height: 1.5;
@@ -74,7 +74,7 @@
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-.how-to-play-card {
+.game-rules-page .how-to-play-card {
   margin-bottom: 1.5rem;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(20px);
@@ -85,7 +85,7 @@
   animation: fadeInUp 1s ease-out 0.2s both;
 }
 
-.how-to-play-header {
+.game-rules-page .how-to-play-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -93,26 +93,26 @@
   color: white;
 }
 
-.how-to-play-title {
-  font-size: 1rem;
+.game-rules-page .how-to-play-title {
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
-.how-to-play-icon {
+.game-rules-page .how-to-play-icon {
   width: 1.25rem;
   height: 1.25rem;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
-.how-to-play-steps {
+.game-rules-page .how-to-play-steps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
-  color: rgba(255, 255, 255, 0.95);
+  color: #fff;
 }
 
-.step {
+.game-rules-page .step {
   text-align: center;
   padding: 1rem;
   border-radius: 0.5rem;
@@ -122,13 +122,13 @@
   transition: all 0.3s ease;
 }
 
-.step:hover {
+.game-rules-page .step:hover {
   transform: translateY(-2px);
   background: rgba(255, 255, 255, 0.12);
   box-shadow: 0 15px 30px -12px rgba(0, 0, 0, 0.3);
 }
 
-.step-number {
+.game-rules-page .step-number {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   border-radius: 50%;
   width: 2.5rem;
@@ -143,17 +143,19 @@
   box-shadow: 0 8px 20px -5px rgba(59, 130, 246, 0.4);
 }
 
-.step-title {
+.game-rules-page .step-title {
   font-weight: 600;
   margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
+  color: #fff;
   letter-spacing: -0.01em;
 }
 
-.step-description {
-  font-size: 0.8rem;
+.game-rules-page .step-description {
+  font-size: 0.95rem;
   line-height: 1.4;
-  opacity: 0.9;
+  color: #fff;
+  opacity: 1;
 }
 
 .payoff-section {
@@ -161,7 +163,7 @@
   animation: fadeInUp 1s ease-out 0.3s both;
 }
 
-.payoff-title {
+.game-rules-page .payoff-title {
   text-align: center;
   font-size: 1.25rem;
   font-weight: 700;
@@ -170,7 +172,7 @@
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-.strategy-tips-card {
+.game-rules-page .strategy-tips-card {
   margin-bottom: 1.5rem;
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(20px);
@@ -181,7 +183,7 @@
   animation: fadeInUp 1s ease-out 0.4s both;
 }
 
-.strategy-header {
+.game-rules-page .strategy-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -189,25 +191,25 @@
   color: white;
 }
 
-.strategy-title {
+.game-rules-page .strategy-title {
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
-.strategy-icon {
+.game-rules-page .strategy-icon {
   width: 1.25rem;
   height: 1.25rem;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
-.strategy-grid {
+.game-rules-page .strategy-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
 }
 
-.strategy-item {
+.game-rules-page .strategy-item {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
@@ -218,12 +220,12 @@
   transition: all 0.3s ease;
 }
 
-.strategy-item:hover {
+.game-rules-page .strategy-item:hover {
   background: rgba(255, 255, 255, 0.12);
   transform: translateY(-1px);
 }
 
-.strategy-item-icon {
+.game-rules-page .strategy-item-icon {
   width: 1rem;
   height: 1rem;
   color: #3b82f6;
@@ -231,27 +233,27 @@
   margin-top: 0.125rem;
 }
 
-.strategy-content h4 {
+.game-rules-page .strategy-content h4 {
   color: white;
   font-weight: 600;
   margin-bottom: 0.25rem;
   font-size: 0.875rem;
 }
 
-.strategy-content p {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.8rem;
+.game-rules-page .strategy-content p {
+  color: #fff;
+  font-size: 0.95rem;
   line-height: 1.4;
 }
 
-.game-modes {
+.game-rules-page .game-modes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
 
-.game-mode-card {
+.game-rules-page .game-mode-card {
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -265,14 +267,14 @@
   animation: fadeInUp 1s ease-out 0.5s both;
 }
 
-.game-mode-card:hover {
+.game-rules-page .game-mode-card:hover {
   transform: translateY(-4px) scale(1.01);
   background: rgba(255, 255, 255, 0.2);
   box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.35);
   border-color: rgba(255, 255, 255, 0.35);
 }
 
-.game-mode-icon-container {
+.game-rules-page .game-mode-icon-container {
   margin: 0 auto 1rem;
   padding: 1rem;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%);
@@ -286,19 +288,19 @@
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
 }
 
-.game-mode-card:hover .game-mode-icon-container {
+.game-rules-page .game-mode-card:hover .game-mode-icon-container {
   transform: scale(1.1) rotate(3deg);
   box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.3);
 }
 
-.game-mode-icon {
+.game-rules-page .game-mode-icon {
   width: 1.5rem;
   height: 1.5rem;
   color: white;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
-.game-mode-title {
+.game-rules-page .game-mode-title {
   color: white;
   font-size: 1.125rem;
   font-weight: 700;
@@ -306,14 +308,14 @@
   letter-spacing: -0.01em;
 }
 
-.game-mode-description {
-  color: rgba(255, 255, 255, 0.85);
+.game-rules-page .game-mode-description {
+  color: #fff;
   margin-bottom: 1rem;
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   line-height: 1.4;
 }
 
-.game-mode-button {
+.game-rules-page .game-mode-button {
   width: 100%;
   font-weight: 600;
   padding: 0.75rem 1.5rem;
@@ -329,29 +331,29 @@
   box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.3);
 }
 
-.online-button {
+.game-rules-page .online-button {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
 }
 
-.online-button:hover {
+.game-rules-page .online-button:hover {
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   transform: translateY(-1px);
   box-shadow: 0 12px 25px -5px rgba(239, 68, 68, 0.4);
 }
 
-.bot-button {
+.game-rules-page .bot-button {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
 }
 
-.bot-button:hover {
+.game-rules-page .bot-button:hover {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   transform: translateY(-1px);
   box-shadow: 0 12px 25px -5px rgba(59, 130, 246, 0.4);
 }
 
-.game-mode-button.active {
+.game-rules-page .game-mode-button.active {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   box-shadow: 0 12px 25px -5px rgba(16, 185, 129, 0.4);
 }
@@ -433,19 +435,63 @@
     font-size: 0.875rem;
   }
 
-  .how-to-play-steps {
+  .game-rules-page .how-to-play-steps {
     grid-template-columns: 1fr;
   }
 
-  .strategy-grid {
+  .game-rules-page .strategy-grid {
     grid-template-columns: 1fr;
   }
 
-  .game-modes {
+  .game-rules-page .game-modes {
     grid-template-columns: 1fr;
   }
 
-  .game-mode-card {
+  .game-rules-page .game-mode-card {
     padding: 1rem;
   }
+}
+
+/* The 2x2 landing page needs a roomier, more legible presentation. */
+@media (min-width: 769px) {
+  .game-rules-page { padding: 2rem; }
+  .game-rules-container { max-width: 1120px; }
+  .game-rules-header { margin-bottom: 3rem; }
+  .game-rules-title { font-size: 3.5rem; }
+  .game-rules-subtitle { max-width: 46rem; font-size: 1.3rem; line-height: 1.6; }
+  .game-rules-page .how-to-play-card { padding: 2rem; border-radius: 1.25rem; }
+  .game-rules-page .how-to-play-title { font-size: 1.5rem; }
+  .game-rules-page .how-to-play-icon { width: 1.75rem; height: 1.75rem; }
+  .game-rules-page .how-to-play-steps { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.5rem; }
+  .game-rules-page .step { padding: 1.5rem; border-radius: 0.9rem; }
+  .game-rules-page .step-number { width: 3.5rem; height: 3.5rem; margin-bottom: 0.8rem; font-size: 1.35rem; }
+  .game-rules-page .step-title { font-size: 1.1rem; }
+  .game-rules-page .step-description { font-size: 1.05rem; line-height: 1.5; }
+  .game-rules-page .payoff-title { font-size: 1.5rem; }
+  .game-rules-page .payoff-matrix-container { max-width: 1040px; gap: 2.25rem; }
+  .game-rules-page .payoff-matrix { padding: 1.35rem; }
+  .game-rules-page .player-label { font-size: 1rem; }
+  .game-rules-page .action-labels { font-size: 0.9rem; }
+  .game-rules-page .payoff-cell { padding: 1.2rem 0.9rem; }
+  .game-rules-page .payoff-values { font-size: 1.3rem; }
+  .game-rules-page .payoff-label { font-size: 0.72rem; }
+  .game-rules-page .game-modes { gap: 1.5rem; }
+  .game-rules-page .game-mode-card { padding: 2rem; border-radius: 1.25rem; }
+  .game-rules-page .game-mode-icon-container { width: 4rem; height: 4rem; padding: 1.25rem; }
+  .game-rules-page .game-mode-icon { width: 2rem; height: 2rem; }
+  .game-rules-page .game-mode-title { font-size: 1.4rem; }
+  .game-rules-page .game-mode-description { font-size: 1.05rem; line-height: 1.5; }
+  .game-rules-page .game-mode-button { padding: 1rem 1.75rem; border-radius: 0.8rem; font-size: 1rem; }
+}
+
+@media (max-width: 768px) {
+  .game-rules-page { padding: 1.25rem; }
+  .game-rules-title { font-size: 2.5rem; }
+  .game-rules-subtitle { font-size: 1.1rem; }
+  .game-rules-page .how-to-play-card, .game-rules-page .game-mode-card { padding: 1.5rem; }
+  .game-rules-page .step { padding: 1.25rem; }
+  .game-rules-page .step-title { font-size: 1.05rem; }
+  .game-rules-page .step-description, .game-rules-page .game-mode-description { font-size: 1rem; }
+  .game-rules-page .game-mode-title { font-size: 1.3rem; }
+  .game-rules-page .game-mode-button { font-size: 1rem; }
 }

@@ -410,6 +410,40 @@
     padding: 2rem;
   }
 }
+
+/* Match the visibility of the other game landing pages. */
+@media (min-width: 769px) {
+  .cpr-homepage-container { max-width: 1120px; }
+  .cpr-homepage-header { margin-bottom: 3rem; }
+  .cpr-homepage-title { font-size: 3.5rem; }
+  .cpr-homepage-subtitle { font-size: 1.3rem; max-width: 46rem; }
+  .cpr-how-to-play-card { padding: 2rem; border-radius: 1.25rem; }
+  .cpr-how-to-play-title { font-size: 1.5rem; }
+  .cpr-how-to-play-icon { width: 1.75rem; height: 1.75rem; }
+  .cpr-how-to-play-steps, .cpr-game-modes { gap: 1.5rem; }
+  .cpr-how-to-play-steps { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .cpr-step { padding: 1.5rem; border-radius: 0.9rem; }
+  .cpr-step-number { width: 3.5rem; height: 3.5rem; margin-bottom: 0.8rem; font-size: 1.35rem; }
+  .cpr-step-title { font-size: 1.1rem; }
+  .cpr-step-description { font-size: 1.05rem; }
+  .cpr-game-mode-card { padding: 2rem; border-radius: 1.25rem; }
+  .cpr-game-mode-icon-container { width: 4rem; height: 4rem; padding: 1.25rem; margin-bottom: 1rem; }
+  .cpr-game-mode-icon { width: 2rem; height: 2rem; }
+  .cpr-game-mode-title { font-size: 1.4rem; }
+  .cpr-game-mode-description { font-size: 1.05rem; }
+  .cpr-game-mode-button { padding: 1rem 1.75rem; border-radius: 0.8rem; font-size: 1rem; }
+}
+
+@media (max-width: 768px) {
+  .cpr-homepage-title { font-size: 2.5rem; }
+  .cpr-homepage-subtitle { font-size: 1.1rem; }
+  .cpr-how-to-play-card, .cpr-game-mode-card { padding: 1.5rem; }
+  .cpr-step { padding: 1.25rem; }
+  .cpr-step-title { font-size: 1.05rem; }
+  .cpr-step-description, .cpr-game-mode-description { font-size: 1rem; }
+  .cpr-game-mode-title { font-size: 1.3rem; }
+  .cpr-game-mode-button { font-size: 1rem; }
+}
 .cpr-grid-2x2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

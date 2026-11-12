@@ -176,6 +176,37 @@
   color: #cbd5e1;
 }
 
+.col-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.experiment-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.32rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.experiment-mode-badge.online {
+  color: #67e8f9;
+  background: rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.22);
+}
+
+.experiment-mode-badge.bot {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.22);
+}
+
 .col-date { color: #64748b; font-size: 0.9rem; }
 
 .col-actions {
@@ -309,7 +340,76 @@
 
 .download-btns {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.download-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.download-info-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  transition: all 0.2s;
+}
+
+.download-info-btn:hover,
+.download-info-btn:focus-visible {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.1);
+  outline: none;
+}
+
+.download-info-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.75rem);
+  width: 260px;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  z-index: 20;
+}
+
+.download-info-popover strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 0.8rem;
+  margin-bottom: 0.35rem;
+}
+
+.download-info-popover span {
+  display: block;
+}
+
+.download-info-wrap:hover .download-info-popover,
+.download-info-btn:focus-visible + .download-info-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .download-action-btn {

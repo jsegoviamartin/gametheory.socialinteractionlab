@@ -1217,3 +1217,520 @@
 .score-value {
   font-size: 2rem;
 }
+
+/* 2x2 Economic Games responsive gameplay viewport */
+.matrix-game-page,
+.matrix-game-page * {
+  box-sizing: border-box;
+}
+
+.matrix-game-page {
+  --matrix-page-padding: clamp(0.5rem, 1.5vh, 1rem);
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: auto;
+  padding: var(--matrix-page-padding);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.matrix-game-screen {
+  width: min(96%, 1200px);
+  max-width: none;
+  margin: 0 auto;
+}
+
+.matrix-gameplay-viewport {
+  display: grid;
+  grid-template-rows: 4.75rem minmax(0, 1fr);
+  gap: clamp(0.4rem, 1vh, 0.65rem);
+  height: calc(100vh - var(--matrix-page-padding) - var(--matrix-page-padding));
+  height: calc(100dvh - var(--matrix-page-padding) - var(--matrix-page-padding));
+  min-height: 0;
+}
+
+.matrix-game-page .matrix-game-header {
+  display: grid;
+  grid-template-columns: auto minmax(10rem, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: clamp(0.5rem, 1vh, 0.75rem) clamp(0.75rem, 1.5vw, 1.15rem);
+  border-radius: 0.85rem;
+}
+
+.matrix-game-page .game-title-section,
+.matrix-game-page .game-status,
+.matrix-game-page .player-info {
+  min-width: 0;
+}
+
+.matrix-game-page .game-title-section .game-title,
+.matrix-game-page .game-title-section .game-subtitle {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.matrix-game-page .game-title-section .game-title {
+  font-size: clamp(1.1rem, 1.8vw, 1.55rem);
+  white-space: nowrap;
+}
+
+.matrix-game-page .game-title-section .game-subtitle {
+  margin-top: 0.18rem;
+  font-size: 0.8rem;
+}
+
+.matrix-match-id {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem 0.65rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: inherit;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matrix-game-page .game-status {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.matrix-game-page .player-info {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.matrix-game-page .matrix-player-label {
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.94);
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.matrix-game-page .game-mode-indicator {
+  width: auto;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.42);
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.matrix-game-page .action-status {
+  padding: 0;
+}
+
+.matrix-game-page .status-active,
+.matrix-game-page .status-waiting {
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.matrix-arena-slot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: clamp(0.8rem, 2vh, 1.2rem);
+  background: rgba(30, 41, 59, 0.5);
+  box-shadow: 0 25px 55px rgba(0, 0, 0, 0.24);
+}
+
+.matrix-game-page .matrix-arena-canvas {
+  --matrix-arena-scale: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24rem;
+  gap: 0.9rem;
+  width: 72rem;
+  height: 43rem;
+  margin: 0;
+  padding: 1.5rem 1.75rem;
+  transform: translate(-50%, -50%) scale(var(--matrix-arena-scale));
+  transform-origin: center;
+}
+
+.matrix-game-page .matrix-arena-canvas .game-main {
+  display: grid;
+  grid-template-rows: 10rem 9rem minmax(0, 1fr);
+  gap: 0.7rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.matrix-game-page .matrix-arena-canvas .timer-section,
+.matrix-game-page .matrix-arena-canvas .round-transition,
+.matrix-game-page .matrix-arena-canvas .results-display {
+  min-height: 0;
+  padding: 0.65rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .scores-section {
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  min-height: 0;
+}
+
+.matrix-game-page .matrix-arena-canvas .score-card {
+  min-height: 0;
+  padding: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.8rem;
+  background: rgba(15, 23, 42, 0.56);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+  color: white;
+  transform: none;
+}
+
+.matrix-game-page .matrix-arena-canvas .score-card.player1 {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.28), rgba(15, 23, 42, 0.62));
+}
+
+.matrix-game-page .matrix-arena-canvas .score-card.player2 {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.26), rgba(15, 23, 42, 0.62));
+}
+
+.matrix-game-page .matrix-arena-canvas .score-card:hover {
+  transform: none;
+}
+
+.matrix-game-page .matrix-arena-canvas .score-header,
+.matrix-game-page .matrix-arena-canvas .score-header h3 {
+  color: white;
+}
+
+.matrix-game-page .matrix-arena-canvas .score-label {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.matrix-game-page .matrix-arena-canvas .score-value {
+  min-height: 2rem;
+  font-size: 1.65rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .action-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .action-title {
+  margin-bottom: 0.55rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .action-buttons {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  align-content: center;
+  gap: 0.75rem;
+  height: auto;
+}
+
+.matrix-game-page .matrix-arena-canvas .action-button {
+  width: min(78%, 28rem);
+  height: 4rem;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  font-size: 1.05rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .game-sidebar {
+  order: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-matrix-container {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-matrix,
+.matrix-game-page .matrix-arena-canvas .payoff-explanation {
+  min-width: 0;
+  margin: 0;
+  padding: 0.65rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-matrix {
+  flex: none;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-cell {
+  padding: 0.65rem 0.45rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-matrix .matrix-header,
+.matrix-game-page .matrix-arena-canvas .payoff-matrix .matrix-body {
+  grid-template-columns: 58px 1fr !important;
+  column-gap: 12px;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-values {
+  font-size: 1.05rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .action-labels {
+  gap: 0.35rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-explanation {
+  flex: none;
+  overflow: hidden;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-explanation h3 {
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-explanation ul {
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.matrix-game-page .matrix-arena-canvas .payoff-explanation li {
+  padding: 0.12rem 0;
+}
+
+.matrix-game-page .matrix-arena-canvas .round-progress {
+  padding: 0.65rem;
+}
+
+.matrix-game-page .matrix-arena-canvas .progress-title {
+  margin-bottom: 0.45rem;
+  font-size: 0.85rem;
+}
+
+.matrix-game-page .round-history-section {
+  width: 100%;
+  height: auto;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  overflow: visible;
+}
+
+.matrix-game-page .round-history-section .payoffs-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior: contain;
+}
+
+.matrix-game-page .round-history-section .payoffs-table {
+  min-width: 64rem;
+}
+
+@media (max-device-width: 1100px) and (min-device-width: 761px) and (pointer: coarse) {
+  .matrix-gameplay-viewport {
+    grid-template-rows: 6.25rem minmax(0, 1fr);
+  }
+
+  .matrix-game-page .matrix-game-header {
+    grid-template-columns: auto minmax(8rem, 1fr);
+  }
+
+  .matrix-game-page .matrix-match-id {
+    justify-self: end;
+  }
+
+  .matrix-game-page .game-status {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (max-device-width: 760px) {
+  .matrix-game-page {
+    --matrix-page-padding: 0.4rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .matrix-game-screen {
+    width: 100%;
+  }
+
+  .matrix-gameplay-viewport {
+    grid-template-rows: auto auto;
+    height: auto;
+    min-height: calc(100dvh - var(--matrix-page-padding) - var(--matrix-page-padding));
+  }
+
+  .matrix-game-page .matrix-game-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+    padding: 0.32rem 0.5rem;
+    height: auto;
+    text-align: left;
+  }
+
+  .matrix-game-page .matrix-match-id {
+    display: none;
+  }
+
+  .matrix-game-page .game-title-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .matrix-game-page .game-title-section .game-title {
+    overflow: hidden;
+    font-size: 0.92rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .matrix-game-page .game-title-section .game-subtitle {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 0.66rem;
+    white-space: nowrap;
+  }
+
+  .matrix-game-page .game-status {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  .matrix-game-page .player-info {
+    flex-direction: row;
+    gap: 0.25rem;
+    font-size: 0.68rem;
+  }
+
+  .matrix-game-page .matrix-player-label,
+  .matrix-game-page .game-mode-indicator,
+  .matrix-game-page .status-active,
+  .matrix-game-page .status-waiting {
+    font-size: 0.62rem;
+  }
+
+  .matrix-game-page .status-active,
+  .matrix-game-page .status-waiting {
+    padding: 0.25rem 0.4rem;
+  }
+
+  .matrix-game-page .status-icon,
+  .matrix-game-page .mode-icon {
+    width: 0.72rem;
+    height: 0.72rem;
+  }
+
+  .matrix-game-page .matrix-arena-slot {
+    height: 150vw;
+    min-height: 0;
+  }
+
+  .matrix-game-page .matrix-arena-canvas {
+    grid-template-columns: 1fr;
+    grid-template-rows: 24rem minmax(0, 1fr);
+    gap: 0.7rem;
+    width: 36rem;
+    height: 54rem;
+    padding: 1rem;
+  }
+
+  .matrix-game-page .matrix-arena-canvas .game-main {
+    grid-template-rows: 6.5rem 6.5rem minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .matrix-game-page .matrix-arena-canvas .timer-circle-container,
+  .matrix-game-page .matrix-arena-canvas .timer-svg {
+    width: 5.5rem;
+    height: 5.5rem;
+  }
+
+  .matrix-game-page .matrix-arena-canvas .timer-time {
+    font-size: 1.8rem;
+  }
+
+  .matrix-game-page .matrix-arena-canvas .action-button {
+    width: min(84%, 26rem);
+    height: 3.5rem;
+    min-height: 0;
+    font-size: 1rem;
+  }
+
+  .matrix-game-page .matrix-arena-canvas .game-sidebar {
+    gap: 0.5rem;
+    min-height: 0;
+  }
+
+  .matrix-game-page .round-history-section {
+    margin-top: 1rem;
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+@media (max-device-width: 420px) {
+  .matrix-game-page .game-mode-indicator {
+    display: none;
+  }
+
+  .matrix-game-page .status-active,
+  .matrix-game-page .status-waiting {
+    font-size: 0.58rem;
+  }
+}
+
+@media (max-device-width: 760px) and (max-height: 560px) {
+  .matrix-game-page .matrix-arena-slot {
+    height: 72dvh;
+  }
+}
+
+@media (max-width: 760px) and (pointer: fine) {
+  .matrix-game-page .matrix-game-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .matrix-game-page .matrix-match-id {
+    display: none;
+  }
+
+  .matrix-game-page .game-mode-indicator {
+    display: none;
+  }
+}

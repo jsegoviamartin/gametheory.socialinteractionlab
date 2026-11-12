@@ -2150,6 +2150,370 @@
   }
 }
 
+/* Ultimatum responsive gameplay viewport */
+.ultimatum-game-page,
+.ultimatum-game-page * {
+  box-sizing: border-box;
+}
+
+.ultimatum-game-page {
+  --ult-page-padding-x: clamp(0.5rem, 1.5vw, 1rem);
+  --ult-page-padding-top: 0.85rem;
+  --ult-page-padding-bottom: 0.25rem;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: auto;
+  padding: var(--ult-page-padding-top) var(--ult-page-padding-x) var(--ult-page-padding-bottom);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ultimatum-game-container {
+  display: block;
+  width: min(100%, 1400px);
+  height: auto;
+}
+
+.ult-gameplay-viewport {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(0.3rem, 0.8vh, 0.55rem);
+  height: calc(100vh - var(--ult-page-padding-top) - var(--ult-page-padding-bottom));
+  height: calc(100dvh - var(--ult-page-padding-top) - var(--ult-page-padding-bottom));
+  min-height: 0;
+  padding-bottom: 0.6rem;
+}
+
+.ultimatum-game-page .ult-game-header {
+  position: relative;
+  top: -0.7rem;
+  display: grid;
+  grid-template-columns: auto auto minmax(9rem, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  max-width: none;
+  min-width: 0;
+  margin: 0 0 -0.7rem;
+  padding: clamp(0.55rem, 1.2vh, 0.85rem) clamp(0.75rem, 1.8vw, 1.25rem);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+}
+
+.ultimatum-game-page .ult-game-header .game-title,
+.ultimatum-game-page .ult-game-header .game-subtitle,
+.ultimatum-game-page .ult-game-header .match-id,
+.ultimatum-game-page .ult-game-header .player-id {
+  min-width: 0;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ultimatum-game-page .ult-game-header .game-title {
+  font-size: clamp(1.15rem, 2vw, 1.65rem);
+  white-space: nowrap;
+}
+
+.ultimatum-game-page .ult-game-header .game-subtitle {
+  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+  white-space: nowrap;
+}
+
+.ultimatum-game-page .ult-game-header .match-id {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem 0.65rem;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ultimatum-game-page .ult-game-header .player-id {
+  padding: 0.4rem 0.7rem;
+  white-space: nowrap;
+}
+
+.ultimatum-game-page .ult-game-header .connection-status {
+  position: static;
+  justify-self: end;
+  margin: 0;
+  padding: 0.4rem 0.7rem;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+.ultimatum-game-page .game-board {
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  transform: none;
+}
+
+.ultimatum-game-page .game-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: min(100%, 44rem);
+  max-width: 64rem;
+  min-height: 0;
+  border-radius: clamp(0.8rem, 2vh, 1.25rem);
+}
+
+.ultimatum-game-page .game-card-header {
+  padding: clamp(0.65rem, 1.6vh, 1rem) 1rem clamp(0.35rem, 1vh, 0.65rem);
+}
+
+.ultimatum-game-page .phase-title {
+  margin: 0;
+  padding-inline: 4.5rem;
+  font-size: clamp(1rem, 2.2vh, 1.35rem);
+}
+
+.ultimatum-game-page .timer {
+  top: 0.55rem;
+  right: 0.7rem;
+}
+
+.ultimatum-game-page .game-card-content {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  padding: clamp(0.5rem, 1.3vh, 0.9rem) clamp(0.7rem, 1.5vw, 1.25rem);
+  overflow: hidden;
+}
+
+.ultimatum-game-page .ult-arena-slot {
+  position: relative;
+  align-self: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ultimatum-game-page .ult-arena-canvas {
+  --ult-arena-scale: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44rem;
+  height: 28rem;
+  padding: 0.35rem;
+  transform: translate(-50%, -50%) scale(var(--ult-arena-scale));
+  transform-origin: center;
+}
+
+.ultimatum-game-page .ult-arena-canvas .instructions-compact {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.38rem 0.8rem;
+}
+
+.ultimatum-game-page .ult-arena-canvas .instructions-compact p {
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+
+.ultimatum-game-page .ult-arena-canvas .offer-section {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  width: 100%;
+  height: 100%;
+}
+
+.ultimatum-game-page .ult-arena-canvas .visual-offer-container {
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0.65rem 1rem;
+}
+
+.ultimatum-game-page .ult-arena-canvas .coin-stacks-container {
+  height: 100%;
+  min-height: 0;
+  padding: 0.35rem 0.5rem;
+  gap: 2rem;
+}
+
+.ultimatum-game-page .ult-arena-canvas .slider-container {
+  height: min(100%, 15rem);
+}
+
+.ultimatum-game-page .ult-arena-canvas .submit-button-visual {
+  width: auto;
+  min-width: 9rem;
+  margin: 0 auto;
+  padding: 0.75rem 1.2rem;
+  font-size: 0.95rem;
+}
+
+.ultimatum-game-page .ult-arena-canvas .responding-section {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  width: 100%;
+  height: 100%;
+}
+
+.ultimatum-game-page .ult-arena-canvas .visual-response-container {
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+}
+
+.ultimatum-game-page .ult-arena-canvas .response-layout {
+  height: 100%;
+  min-height: 0;
+  padding: 1rem 2rem;
+  gap: 4rem;
+}
+
+.ultimatum-game-page .ult-arena-canvas > .waiting-section {
+  justify-content: center;
+  width: min(100%, 34rem);
+  height: 100%;
+  margin: 0 auto;
+}
+
+.ultimatum-game-page .ult-arena-canvas .waiting-text {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ultimatum-game-page .ult-arena-canvas .round-status {
+  width: 100%;
+  margin-top: 0;
+}
+
+.ultimatum-game-page .payoffs-area {
+  position: relative;
+  width: 100%;
+  height: auto;
+  margin: 1.5rem 0 0;
+  padding: 1.25rem 1rem;
+  overflow: visible;
+}
+
+.ultimatum-game-page .payoffs-wrapper {
+  width: 100%;
+  max-width: 1000px;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior: contain;
+}
+
+.ultimatum-game-page .round-results-modal,
+.ultimatum-game-page .timeout-modal {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+
+@media (max-width: 760px) {
+  .ultimatum-game-page {
+    --ult-page-padding-x: 0.4rem;
+    --ult-page-padding-top: 0.6rem;
+    --ult-page-padding-bottom: 0.2rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ultimatum-game-container {
+    width: 100%;
+    padding: 0;
+  }
+
+  .ult-gameplay-viewport {
+    height: auto;
+    min-height: calc(100dvh - var(--ult-page-padding-top) - var(--ult-page-padding-bottom));
+    padding-bottom: 0.4rem;
+  }
+
+  .ultimatum-game-page .ult-game-header {
+    top: -0.5rem;
+    margin-bottom: -0.5rem;
+  }
+
+  .ultimatum-game-page .game-board,
+  .ultimatum-game-page .game-card {
+    height: auto;
+  }
+
+  .ultimatum-game-page .game-card {
+    min-height: 0;
+  }
+
+  .ultimatum-game-page .game-card-content {
+    grid-template-rows: auto;
+    overflow: visible;
+  }
+
+  .ultimatum-game-page .ult-arena-slot {
+    height: min(62vw, 48dvh);
+    min-height: 0;
+  }
+
+  .ultimatum-game-page .ult-game-header {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.4rem;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .ultimatum-game-page .ult-game-header .game-title,
+  .ultimatum-game-page .ult-game-header .match-id {
+    display: none;
+  }
+
+  .ultimatum-game-page .ult-game-header .game-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .ultimatum-game-page .ult-game-header .player-id,
+  .ultimatum-game-page .ult-game-header .connection-status {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .ultimatum-game-page .phase-title {
+    padding-inline: 3.5rem;
+    font-size: 0.9rem;
+  }
+
+  .ultimatum-game-page .timer {
+    padding: 0.25rem 0.45rem;
+    font-size: 0.72rem;
+  }
+
+  .ultimatum-game-page .game-card-content {
+    padding: 0.4rem 0.55rem 0.55rem;
+  }
+
+  .ultimatum-game-page .payoffs-area {
+    padding: 1rem 0.5rem;
+  }
+}
+
+@media (max-height: 560px) {
+  .ult-gameplay-viewport {
+    gap: 0.3rem;
+  }
+
+  .ultimatum-game-page .ult-game-header {
+    padding-block: 0.35rem;
+  }
+
+  .ultimatum-game-page .game-card-header {
+    padding-block: 0.4rem 0.25rem;
+  }
+}
+
 
 
 

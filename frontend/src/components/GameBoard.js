@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useLayoutEffect, useRef } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { Clock, Users, Bot, Trophy, Target, Zap, Shield, MessageSquare, Music, Mic2 } from "lucide-react"
 import { getPlayerFingerprint } from "../services/gameApi"
@@ -51,6 +51,8 @@ function GameBoard({ playerFingerprint }) {
   const [showSurvey, setShowSurvey] = useState(false)
   const [surveySubmitted, setSurveySubmitted] = useState(false)
   const socketRef = useRef(null)
+  const arenaSlotRef = useRef(null)
+  const arenaCanvasRef = useRef(null)
   const timedOutRef = useRef(false)
   const leaveSentRef = useRef(false)
   const [modal, setModal] = useState({ open: false, title: "", msg: "", redirectTo: "/prisoners" })
@@ -59,6 +61,41 @@ function GameBoard({ playerFingerprint }) {
   const [transitionCountdown, setTransitionCountdown] = useState(3)
   const [showInitialCountdown, setShowInitialCountdown] = useState(false)
   const [initialCountdown, setInitialCountdown] = useState(3)
+
+  useLayoutEffect(() => {
+    const slot = arenaSlotRef.current
+    const canvas = arenaCanvasRef.current
+    if (!slot || !canvas) return undefined
+
+    const fitArena = () => {
+      const baseWidth = canvas.offsetWidth
+      const baseHeight = canvas.offsetHeight
+      if (!baseWidth || !baseHeight) return
+
+      const fittedScale = Math.min(
+        slot.clientWidth / baseWidth,
+        slot.clientHeight / baseHeight
+      )
+      const scaleWithBreathingRoom = fittedScale * 0.93
+      canvas.style.setProperty(
+        "--matrix-arena-scale",
+        String(Math.max(0, scaleWithBreathingRoom))
+      )
+    }
+
+    fitArena()
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitArena)
+    observer?.observe(slot)
+    observer?.observe(canvas)
+    window.addEventListener("resize", fitArena)
+    window.visualViewport?.addEventListener("resize", fitArena)
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener("resize", fitArena)
+      window.visualViewport?.removeEventListener("resize", fitArena)
+    }
+  }, [connected, gameState.waitingForOpponent])
 
   // Connect to WebSocket
   useEffect(() => {
@@ -374,7 +411,7 @@ function GameBoard({ playerFingerprint }) {
 
   // Handle modal close with redirection
   const handleModalClose = () => {
-    const exitPath = gameState.experimentId ? `/experiments/${gameState.experimentId}/home` : (modal.redirectTo || "/prisoners");
+    const exitPath = gameState.gameOver ? "/" : (gameState.experimentId ? `/experiments/${gameState.experimentId}/home` : (modal.redirectTo || "/prisoners"));
     setModal({ open: false, title: "", msg: "", redirectTo: "/prisoners" })
     navigate(exitPath)
   }
@@ -412,12 +449,11 @@ function GameBoard({ playerFingerprint }) {
     setSurveySubmitted(true);
     setShowSurvey(false);
     // Show a success message
-    const exitPath = gameState.experimentId ? `/experiment/${gameState.experimentId}` : "/prisoners";
     setModal({
       open: true,
       title: "Survey Submitted",
       msg: "Thank you for your feedback! Your responses have been recorded.",
-      redirectTo: exitPath
+      redirectTo: "/"
     });
   };
 
@@ -430,7 +466,7 @@ function GameBoard({ playerFingerprint }) {
     console.log('Rendering survey modal, showSurvey:', showSurvey);
     console.log('Survey modal props:', {
       matchId,
-      playerFingerprint: playerFingerprint || localStorage.getItem("playerUUID"),
+      playerFingerprint: myFingerprint,
       gameType: "prisoners"
     });
     console.log('About to render survey modal overlay');
@@ -469,7 +505,7 @@ function GameBoard({ playerFingerprint }) {
         >
           <SurveyForm
             matchId={matchId}
-            playerFingerprint={playerFingerprint || localStorage.getItem("playerUUID")}
+            playerFingerprint={myFingerprint}
             gameType="prisoners"
             onSubmit={handleSurveySubmit}
             onCancel={handleSurveyCancel}
@@ -618,19 +654,9 @@ function GameBoard({ playerFingerprint }) {
                   PLEASE COMPLETE SURVEY - We'd appreciate your feedback!
                 </button>
               )}
-              <button className="play-again-button" onClick={() => {
-                const exitPath = gameState.experimentId ? `/experiments/${gameState.experimentId}/home` : "/prisoners";
-                navigate(exitPath);
-              }}>
-                <Zap className="button-icon" />
-                {gameState.experimentId ? "Back to Laboratory" : "Play Again"}
-              </button>
-              <button className="menu-button" onClick={() => {
-                const exitPath = gameState.experimentId ? `/join-custom` : "/";
-                navigate(exitPath);
-              }}>
+              <button className="menu-button" onClick={() => navigate("/")}>
                 <Shield className="button-icon" />
-                {gameState.experimentId ? "Laboratory Menu" : "Main Menu"}
+                Go back to portal
               </button>
             </div>
 
@@ -690,9 +716,10 @@ function GameBoard({ playerFingerprint }) {
   const currentRoom = roomConfigs[gameState.gameType] || roomConfigs["prisoners-dilemma"]
 
   return (
-    <div className="game-page">
-      <div className="game-screen">
-        <div className="game-header">
+    <div className={`game-page matrix-game-page matrix-phase-${roundPhase}`}>
+      <div className="game-screen matrix-game-screen">
+        <div className="matrix-gameplay-viewport">
+        <div className="game-header matrix-game-header">
           <div className="game-title-section">
             <h1 className="game-title">{currentRoom.title}</h1>
             <p className="game-subtitle">
@@ -700,9 +727,11 @@ function GameBoard({ playerFingerprint }) {
             </p>
           </div>
 
+          <code className="matrix-match-id">Match ID: {matchId}</code>
+
           <div className="game-status">
             <div className="player-info">
-              <span className="player-label">You are Player {isPlayer1 ? "1" : "2"}</span>
+              <span className="matrix-player-label">You are Player {isPlayer1 ? "1" : "2"}</span>
               <div className="game-mode-indicator">
                 {gameState.gameMode === "online" ? (
                   <>
@@ -734,7 +763,8 @@ function GameBoard({ playerFingerprint }) {
           </div>
         </div>
 
-        <div className="game-content">
+        <div className="matrix-arena-slot" ref={arenaSlotRef}>
+        <div className="game-content matrix-arena-canvas" ref={arenaCanvasRef}>
           <div className="game-main">
             {roundPhase === "choosing" ? (
               <div className="timer-section">
@@ -763,7 +793,6 @@ function GameBoard({ playerFingerprint }) {
             <div className="scores-section">
               <div className="score-card player1">
                 <div className="score-header">
-                  <Target className="score-icon" />
                   <h3>Player 1</h3>
                 </div>
                 <div className="score-value">
@@ -780,7 +809,6 @@ function GameBoard({ playerFingerprint }) {
 
               <div className="score-card player2">
                 <div className="score-header">
-                  {gameState.gameMode === "online" ? <Users className="score-icon" /> : <Bot className="score-icon" />}
                   <h3>Player 2</h3>
                 </div>
                 <div className="score-value">
@@ -827,13 +855,13 @@ function GameBoard({ playerFingerprint }) {
             <PayoffMatrix
               highlightedCell={roundPhase === "results" ? lastRoundResult : null}
               room={gameState.gameType}
-              customPayoffs={{
+              customPayoffs={gameState.gameType === "custom" ? {
                 p1_cc: gameState.p1_cc, p2_cc: gameState.p2_cc,
                 p1_cd: gameState.p1_cd, p2_cd: gameState.p2_cd,
                 p1_dc: gameState.p1_dc, p2_dc: gameState.p2_dc,
                 p1_dd: gameState.p1_dd, p2_dd: gameState.p2_dd,
                 labelA: gameState.labelA, labelB: gameState.labelB
-              }}
+              } : undefined}
             />
 
             <div className="round-progress">
@@ -849,6 +877,8 @@ function GameBoard({ playerFingerprint }) {
               </div>
             </div>
           </div>
+        </div>
+        </div>
         </div>
 
         <div className="round-history-section">

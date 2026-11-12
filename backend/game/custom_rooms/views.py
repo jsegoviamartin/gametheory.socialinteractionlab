@@ -1,16 +1,27 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.http import HttpResponse
-from game.exports import get_user_data_csv, get_combined_user_data_csv
+from game.exports import GAME_CSV_FILENAMES, get_user_data_csv, get_combined_user_data_csv
 from .models import CustomExperiment, CustomPrisoner, CustomUltimatum, CustomPublicGoods, CustomCommonPool
 from .serializers import (
+    ConsentAcceptanceSerializer,
+    ExperimentSummarySerializer,
     CustomExperimentSerializer,
     CustomPrisonerSerializer,
     CustomUltimatumSerializer,
     CustomPublicGoodsSerializer,
     CustomCommonPoolSerializer
 )
+from .participation import accept_and_assign, get_assigned_condition
+
+
+CONDITION_SERIALIZERS = {
+    'prisoner': CustomPrisonerSerializer,
+    'ultimatum': CustomUltimatumSerializer,
+    'public_goods': CustomPublicGoodsSerializer,
+    'common_pool': CustomCommonPoolSerializer,
+}
 
 
 def run_old_data_cleanup():
@@ -26,14 +37,14 @@ class ExperimentViewSet(viewsets.ModelViewSet):
     serializer_class = CustomExperimentSerializer
 
     def get_permissions(self):
-        if self.action in ['lobby', 'retrieve', 'consent']:
+        if self.action in ['lobby', 'retrieve', 'consent', 'participation']:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         run_old_data_cleanup()
 
-        if self.action in ['lobby', 'retrieve']:
+        if self.action in ['lobby', 'retrieve', 'consent', 'participation']:
             return CustomExperiment.objects.all().order_by('-created_at')
         return CustomExperiment.objects.filter(creator=self.request.user).order_by('-created_at')
 
@@ -41,8 +52,32 @@ class ExperimentViewSet(viewsets.ModelViewSet):
     def lobby(self, request):
         run_old_data_cleanup()
         experiments = CustomExperiment.objects.all().order_by('-created_at')
-        serializer = self.get_serializer(experiments, many=True)
+        serializer = ExperimentSummarySerializer(experiments, many=True)
         return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        experiment = self.get_object()
+        serializer_class = (
+            CustomExperimentSerializer if experiment.creator_id == request.user.pk
+            else ExperimentSummarySerializer
+        )
+        return Response(serializer_class(experiment).data)
+
+    # Participant identity comes from the saved fingerprint, independently of researcher login cookies.
+    @action(detail=True, methods=['get', 'post'], authentication_classes=[])
+    def participation(self, request, pk=None):
+        experiment = self.get_object()
+        if request.method == 'POST':
+            acceptance = ConsentAcceptanceSerializer(data=request.data)
+            acceptance.is_valid(raise_exception=True)
+            condition = accept_and_assign(experiment, acceptance.validated_data['player_fingerprint'])
+        else:
+            condition = get_assigned_condition(experiment, request.query_params.get('player_fingerprint'))
+
+        data = ExperimentSummarySerializer(experiment).data
+        data.pop('secret_code', None)
+        data['condition'] = CONDITION_SERIALIZERS[experiment.game_type](condition).data
+        return Response(data)
 
     def perform_create(self, serializer):
         name = serializer.validated_data.get('name')
@@ -102,6 +137,42 @@ class ExperimentViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['patch'])
+    def update_condition(self, request, pk=None):
+        experiment = self.get_object()
+        condition_id = serializers.IntegerField(min_value=1).run_validation(
+            request.query_params.get('condition_id')
+        )
+        serializer_class = CONDITION_SERIALIZERS[experiment.game_type]
+        condition = serializer_class.Meta.model.objects.filter(
+            experiment=experiment, id=condition_id,
+        ).first()
+        if condition is None:
+            return Response({'error': 'Condition not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = serializer_class(condition, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        name = serializer.validated_data.get('condition_name', condition.condition_name)
+        if serializer_class.Meta.model.objects.filter(
+            experiment=experiment, condition_name__iexact=name,
+        ).exclude(id=condition.id).exists():
+            raise serializers.ValidationError({'condition_name': 'A condition with this name already exists in this experiment.'})
+
+        if experiment.game_type in ('public_goods', 'common_pool'):
+            room_type = serializer.validated_data.get('room_type', condition.room_type)
+            if room_type in ('basic', 'punishment'):
+                serializer.validated_data.update(reward_cost=0, reward_value=0)
+            if room_type in ('basic', 'reward'):
+                serializer.validated_data.update(punishment_cost=0, punishment_value=0)
+
+        serializer.save(
+            experiment=experiment,
+            experiment_name=experiment.name,
+            creator_username=experiment.creator.username,
+            secret_code=experiment.secret_code,
+        )
+        return Response(serializer.data)
+
     @action(detail=True, methods=['delete'])
     def delete_condition(self, request, pk=None):
         experiment = self.get_object()
@@ -149,10 +220,7 @@ class ExperimentViewSet(viewsets.ModelViewSet):
             return Response({"error": "No data found or failed to generate CSV"}, status=status.HTTP_200_OK)
         
         response = HttpResponse(csv_data, content_type='text/csv')
-        if experiment_id:
-            filename = f"experiment_{experiment.name.replace(' ', '_')}_data.csv"
-        else:
-            filename = f"my_{game_type}_data.csv"
+        filename = GAME_CSV_FILENAMES[game_type]
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 

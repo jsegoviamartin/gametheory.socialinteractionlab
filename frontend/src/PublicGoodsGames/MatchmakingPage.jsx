@@ -123,7 +123,7 @@ export default function PublicGoodsMatchmakingPage() {
       let matchData;
       if (experimentId) {
         // Use custom laboratory matchmaking if experimentId is present
-        matchData = await gameApi.matchmakeCustomPublicGoods(experimentId, playerFingerprint, conditionId)
+        matchData = await gameApi.matchmakeCustomPublicGoods(experimentId, playerFingerprint, conditionId, mode)
       } else {
         // Otherwise use standard public matchmaking
         matchData = await gameApi.createMatchPublicGoods(room, mode, playerFingerprint)

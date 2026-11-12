@@ -139,7 +139,7 @@ const SurveyForm = ({ matchId, playerFingerprint, gameType, onSubmit, onCancel }
       }
     } catch (error) {
       console.error('Survey submission error:', error);
-      setErrors({ submit: 'Network error. Please try again.' });
+      setErrors({ submit: error instanceof TypeError ? 'Network error. Please try again.' : (error.message || 'Could not submit your survey. Please try again.') });
     } finally {
       setIsSubmitting(false);
     }

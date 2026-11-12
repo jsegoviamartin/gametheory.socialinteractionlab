@@ -5,33 +5,43 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import uuid
 from .models import GameMatch
-from custom_rooms.models import CustomExperiment, CustomPrisoner
-import random
+from custom_rooms.models import CustomExperiment
+from custom_rooms.participation import get_assigned_condition
+from rest_framework.exceptions import APIException
 
 ROOM_PAYOFFS = {
     "prisoners-dilemma": {
         "p1_cc": 20, "p2_cc": 20, "p1_cd": 0, "p2_cd": 30,
-        "p1_dc": 30, "p2_dc": 0, "p1_dd": 10, "p2_dd": 10
+        "p1_dc": 30, "p2_dc": 0, "p1_dd": 10, "p2_dd": 10,
+        "label_a": "Cooperate", "label_b": "Defect",
+        "room_name": "Prisoner's Dilemma",
     },
     "bach-stravinsky-1": {
         "p1_cc": 30, "p2_cc": 20, "p1_cd": 0, "p2_cd": 0,
-        "p1_dc": 0, "p2_dc": 0, "p1_dd": 20, "p2_dd": 30
+        "p1_dc": 0, "p2_dc": 0, "p1_dd": 20, "p2_dd": 30,
+        "label_a": "Prize Fight", "label_b": "Ballet",
+        "room_name": "Battle of the Sexes (1)",
     },
     "bach-stravinsky-2": {
         "p1_cc": 30, "p2_cc": 20, "p1_cd": 10, "p2_cd": 10,
-        "p1_dc": 0, "p2_dc": 0, "p1_dd": 20, "p2_dd": 30
+        "p1_dc": 0, "p2_dc": 0, "p1_dd": 20, "p2_dd": 30,
+        "label_a": "Prize Fight", "label_b": "Ballet",
+        "room_name": "Battle of the Sexes (2)",
     },
     "stag-hunt": {
         "p1_cc": 10, "p2_cc": 10, "p1_cd": 1, "p2_cd": 8,
-        "p1_dc": 8, "p2_dc": 1, "p1_dd": 5, "p2_dd": 5
+        "p1_dc": 8, "p2_dc": 1, "p1_dd": 5, "p2_dd": 5,
+        "label_a": "Stag", "label_b": "Hare",
+        "room_name": "Stag Hunt",
     }
 }
+
 
 @csrf_exempt
 def matchmake_custom_the_game(request):
     """
     Matchmaking for custom 2x2 experiments.
-    Finds open match for this experiment_id or creates one with a random condition.
+    Finds an online opponent or creates an immediate bot match using the selected condition.
     """
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
@@ -40,93 +50,102 @@ def matchmake_custom_the_game(request):
         data = json.loads(request.body.decode("utf-8"))
         exp_id = data.get("experiment_id")
         player_fp = data.get("player_fingerprint")
+        requested_cond_id = data.get("condition_id")
+        game_mode = data.get("game_mode")
         ip_address = request.META.get('REMOTE_ADDR', '127.0.0.1')
 
         if not exp_id or not player_fp:
             return JsonResponse({"status": "error", "message": "experiment_id and player_fingerprint required"}, status=400)
 
-        # 1. Search for available match in THIS experiment
-        match = (
-            GameMatch.objects
-            .filter(
-                game_mode='online',
-                experiment_id=exp_id,
-                is_complete=False,
-                player_2_fingerprint__isnull=True
-            )
-            .order_by("created_at")
-            .first()
-        )
-
-        # Already joined?
-        if match and player_fp == match.player_1_fingerprint:
-            return JsonResponse({
-                "status": "already_joined",
-                "match_id": match.match_id,
-                "game_mode": match.game_mode,
-            })
-
-        # Join existing
-        if match:
-            match.player_2_fingerprint = player_fp
-            match.player_2_ip = ip_address
-            match.player_2_country = 'Unknown'
-            match.player_2_city = 'Unknown'
-            match.save()
-            return JsonResponse({
-                "status": "joined_existing_match",
-                "match_id": match.match_id,
-                "game_mode": match.game_mode,
-            })
-
-        # 2. Create New Match with a random condition from the experiment
         experiment = CustomExperiment.objects.get(id=exp_id)
-        conditions = list(CustomPrisoner.objects.filter(experiment=experiment))
-        
-        if not conditions:
-            return JsonResponse({"status": "error", "message": "No conditions found for this experiment"}, status=400)
-            
-        requested_cond_id = data.get("condition_id")
-        if requested_cond_id:
-            try:
-                chosen_cond = CustomPrisoner.objects.get(id=requested_cond_id, experiment=experiment)
-            except CustomPrisoner.DoesNotExist:
-                chosen_cond = random.choice(conditions)
-        else:
-            chosen_cond = random.choice(conditions)
+        if game_mode is None:
+            game_mode = experiment.game_mode
 
-        match = GameMatch.objects.create(
-            match_id=str(uuid.uuid4())[:8],
-            game_mode='online',
-            game_type='custom',
-            experiment_id=exp_id,
-            condition_id=chosen_cond.id,
-            total_rounds=chosen_cond.rounds,
-            p1_cc=chosen_cond.p1_cc, p2_cc=chosen_cond.p2_cc,
-            p1_cd=chosen_cond.p1_cd, p2_cd=chosen_cond.p2_cd,
-            p1_dc=chosen_cond.p1_dc, p2_dc=chosen_cond.p2_dc,
-            p1_dd=chosen_cond.p1_dd, p2_dd=chosen_cond.p2_dd,
-            label_a=chosen_cond.label_a,
-            label_b=chosen_cond.label_b,
-            room_name=chosen_cond.room_name,
-            player_1_fingerprint=player_fp,
-            player_1_ip=ip_address,
-            player_1_country='Unknown',
-            player_1_city='Unknown',
-        )
+        if game_mode not in ["online", "bot"]:
+            return JsonResponse({"status": "error", "message": "Invalid game_mode"}, status=400)
+
+        if game_mode != experiment.game_mode:
+            return JsonResponse({
+                "status": "error",
+                "message": "Game mode must match the experiment's selected mode.",
+            }, status=400)
+
+        chosen_cond = get_assigned_condition(experiment, player_fp, requested_cond_id, 'prisoner')
+
+        if game_mode == "online":
+            match = (
+                GameMatch.objects
+                .filter(
+                    game_mode="online",
+                    experiment_id=exp_id,
+                    condition_id=chosen_cond.id,
+                    is_complete=False,
+                    player_2_fingerprint__isnull=True
+                )
+                .order_by("created_at")
+                .first()
+            )
+
+            if match and player_fp == match.player_1_fingerprint:
+                return JsonResponse({
+                    "status": "already_joined",
+                    "match_id": match.match_id,
+                    "game_mode": match.game_mode,
+                })
+
+            if match:
+                match.player_2_fingerprint = player_fp
+                match.player_2_ip = ip_address
+                match.player_2_country = "Unknown"
+                match.player_2_city = "Unknown"
+                match.save()
+                return JsonResponse({
+                    "status": "joined_existing_match",
+                    "match_id": match.match_id,
+                    "game_mode": match.game_mode,
+                })
+
+        create_kwargs = {
+            "match_id": str(uuid.uuid4())[:8],
+            "game_mode": game_mode,
+            "game_type": "custom",
+            "experiment_id": exp_id,
+            "condition_id": chosen_cond.id,
+            "total_rounds": chosen_cond.rounds,
+            "p1_cc": chosen_cond.p1_cc,
+            "p2_cc": chosen_cond.p2_cc,
+            "p1_cd": chosen_cond.p1_cd,
+            "p2_cd": chosen_cond.p2_cd,
+            "p1_dc": chosen_cond.p1_dc,
+            "p2_dc": chosen_cond.p2_dc,
+            "p1_dd": chosen_cond.p1_dd,
+            "p2_dd": chosen_cond.p2_dd,
+            "label_a": chosen_cond.label_a,
+            "label_b": chosen_cond.label_b,
+            "room_name": chosen_cond.room_name,
+            "player_1_fingerprint": player_fp,
+            "player_1_ip": ip_address,
+            "player_1_country": "Unknown",
+            "player_1_city": "Unknown",
+        }
+
+        if game_mode == "bot":
+            create_kwargs["player_2_fingerprint"] = "bot"
+
+        match = GameMatch.objects.create(**create_kwargs)
 
         return JsonResponse({
-            "status": "created_new_match",
+            "status": "created_bot_match" if game_mode == "bot" else "created_new_match",
             "match_id": match.match_id,
             "game_mode": match.game_mode,
         })
 
+    except APIException as e:
+        return JsonResponse({"status": "error", "message": e.detail}, status=e.status_code)
     except Exception as e:
         import traceback
         traceback.print_exc()
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
-
 @csrf_exempt
 def create_match(request):
     if request.method == 'POST':
@@ -153,6 +172,13 @@ def create_match(request):
                     is_complete=False,
                     experiment_id__isnull=True
                 )
+
+                # Repair any waiting standard match created before the room
+                # configuration was stored explicitly on the match row.
+                room_config = ROOM_PAYOFFS.get(game_type, ROOM_PAYOFFS["prisoners-dilemma"])
+                for field, value in room_config.items():
+                    setattr(game_match, field, value)
+                game_match.save(update_fields=list(room_config.keys()))
                 
                 if game_match.player_1_fingerprint == player_fingerprint:
                     # Player is already P1, return already_joined
@@ -198,6 +224,7 @@ def create_match(request):
 
         elif game_mode == 'bot':
             match_id = str(uuid.uuid4())[:8]
+            room_config = ROOM_PAYOFFS.get(game_type, ROOM_PAYOFFS["prisoners-dilemma"])
             game_match = GameMatch.objects.create(
                 match_id=match_id,
                 game_mode=game_mode,
@@ -206,7 +233,8 @@ def create_match(request):
                 player_1_ip=ip_address,
                 player_1_country='Unknown',
                 player_1_city='Unknown',
-                player_2_fingerprint='bot'
+                player_2_fingerprint='bot',
+                **room_config
             )
             status_message = 'created_bot_match'
             print(f"Player {player_fingerprint} created bot match {game_match.match_id}")

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate, useParams, Link } from "react-router-dom"
 import { ShieldAlert, ArrowLeft, CheckCircle } from "lucide-react"
+import { getPlayerFingerprint } from "./services/gameApi"
 import "./ConsentFormParticipant.css"
 
 function ConsentFormParticipant() {
@@ -10,6 +11,8 @@ function ConsentFormParticipant() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [accepted, setAccepted] = useState(false)
+  const [isAccepting, setIsAccepting] = useState(false)
+  const [acceptError, setAcceptError] = useState("")
 
   useEffect(() => {
     const fetchConsent = async () => {
@@ -34,10 +37,25 @@ function ConsentFormParticipant() {
     fetchConsent()
   }, [id])
 
-  const handleAccept = () => {
-    // Store acceptance in session storage so the home page knows they accepted
-    sessionStorage.setItem(`consent_${id}`, "accepted")
-    navigate(`/experiments/${id}/home`)
+  const handleAccept = async () => {
+    if (!accepted || isAccepting) return
+    setIsAccepting(true)
+    setAcceptError("")
+    try {
+      const response = await fetch(`/api/custom-rooms/experiments/${id}/participation/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player_fingerprint: getPlayerFingerprint(), accepted: true }),
+      })
+      if (!response.ok) {
+        throw new Error("Could not prepare your experiment. Please try again or contact the researcher.")
+      }
+      navigate(`/experiments/${id}/home`)
+    } catch (err) {
+      setAcceptError(err.message)
+    } finally {
+      setIsAccepting(false)
+    }
   }
 
   if (isLoading) {
@@ -160,6 +178,7 @@ function ConsentFormParticipant() {
           </div>
 
           <div className="consent-footer">
+            {acceptError && <p role="alert">{acceptError}</p>}
             <label className="accept-checkbox">
               <input 
                 type="checkbox" 
@@ -171,11 +190,11 @@ function ConsentFormParticipant() {
             
             <button 
               className={`accept-btn ${accepted ? 'active' : ''}`}
-              disabled={!accepted}
+              disabled={!accepted || isAccepting}
               onClick={handleAccept}
             >
               {accepted ? <CheckCircle size={18} /> : null}
-              Accept and Proceed
+              {isAccepting ? "Preparing your experiment..." : "Accept and Proceed"}
             </button>
           </div>
         </div>
